@@ -128,6 +128,54 @@ cpu_6502/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\cpu_6502.dir\build.make CMakeFiles/cpu_6502.dir/build
 .PHONY : cpu_6502/fast
 
+bus.obj: bus.cpp.obj
+.PHONY : bus.obj
+
+# target to build an object file
+bus.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\cpu_6502.dir\build.make CMakeFiles/cpu_6502.dir/bus.cpp.obj
+.PHONY : bus.cpp.obj
+
+bus.i: bus.cpp.i
+.PHONY : bus.i
+
+# target to preprocess a source file
+bus.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\cpu_6502.dir\build.make CMakeFiles/cpu_6502.dir/bus.cpp.i
+.PHONY : bus.cpp.i
+
+bus.s: bus.cpp.s
+.PHONY : bus.s
+
+# target to generate assembly for a file
+bus.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\cpu_6502.dir\build.make CMakeFiles/cpu_6502.dir/bus.cpp.s
+.PHONY : bus.cpp.s
+
+cpu.obj: cpu.cpp.obj
+.PHONY : cpu.obj
+
+# target to build an object file
+cpu.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\cpu_6502.dir\build.make CMakeFiles/cpu_6502.dir/cpu.cpp.obj
+.PHONY : cpu.cpp.obj
+
+cpu.i: cpu.cpp.i
+.PHONY : cpu.i
+
+# target to preprocess a source file
+cpu.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\cpu_6502.dir\build.make CMakeFiles/cpu_6502.dir/cpu.cpp.i
+.PHONY : cpu.cpp.i
+
+cpu.s: cpu.cpp.s
+.PHONY : cpu.s
+
+# target to generate assembly for a file
+cpu.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\cpu_6502.dir\build.make CMakeFiles/cpu_6502.dir/cpu.cpp.s
+.PHONY : cpu.cpp.s
+
 main.obj: main.cpp.obj
 .PHONY : main.obj
 
@@ -161,6 +209,12 @@ help:
 	@echo ... edit_cache
 	@echo ... rebuild_cache
 	@echo ... cpu_6502
+	@echo ... bus.obj
+	@echo ... bus.i
+	@echo ... bus.s
+	@echo ... cpu.obj
+	@echo ... cpu.i
+	@echo ... cpu.s
 	@echo ... main.obj
 	@echo ... main.i
 	@echo ... main.s

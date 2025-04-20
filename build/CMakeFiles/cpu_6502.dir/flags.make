@@ -4,7 +4,7 @@
 # compile CXX with C:/Users/teore/scoop/apps/mingw/current/bin/g++.exe
 CXX_DEFINES = 
 
-CXX_INCLUDES = 
+CXX_INCLUDES = @CMakeFiles/cpu_6502.dir/includes_CXX.rsp
 
 CXX_FLAGS = -std=gnu++11
 
