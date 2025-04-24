@@ -3,13 +3,14 @@
 
 #include <cstdint>
 #include <array>
-#include "cpu.h" // Assuming CPU6502 is declared in this header
+#include "ppu.h"
 
 class CPU6502;
 
 class Bus {
 public:
     CPU6502* cpu;  // The CPU object
+    PPU* ppu;
 
     std::array<uint8_t, 2048> ram{};  // 2KB internal RAM
     std::array<uint8_t, 32768> rom{}; // 32KB PRG-ROM

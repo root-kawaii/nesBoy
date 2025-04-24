@@ -81,10 +81,90 @@ void PPU::writeOAM(uint16_t addr, uint8_t data) {
     oam_data = data;
 }
 
-void PPU::step() {
-    // Perform one step of the PPU cycle (e.g., rendering a frame, updating the screen, etc.)
-    // Placeholder for rendering and other functionality
+void PPU::setStatusFlag(bool vblank) {
+    if (vblank)
+        status |= 0x80; // Set VBlank bit
+    else
+        status &= ~0x80;
+}
 
-    // In a real implementation, this would interact with the CPU and the screen
-    std::cout << "PPU step!" << std::endl;
+void PPU::fetchTileID() {
+    uint16_t baseAddr = 0x2000; // For now, use nametable 0
+    uint16_t ntIndex = ((scanline / 8) * 32) + ((cycle - 1) / 8);
+    tileID = read(baseAddr + ntIndex);
+}
+
+void PPU::fetchAttribute() {
+    tileAttrib = 0; // Placeholder (we'll calculate from attribute table later)
+}
+
+void PPU::fetchTileLSB() {
+    uint16_t patternBase = 0x0000; // For now, fixed
+    uint16_t tileAddr = patternBase + (tileID * 16) + (scanline % 8);
+    tileLSB = read(tileAddr);
+}
+
+void PPU::fetchTileMSB() {
+    uint16_t patternBase = 0x0000;
+    uint16_t tileAddr = patternBase + (tileID * 16) + (scanline % 8) + 8;
+    tileMSB = read(tileAddr);
+}
+
+void PPU::renderTile() {
+    int tileX = (cycle - 1) / 8;
+    int tileY = scanline / 8;
+    int pixelRow = scanline % 8;
+
+    for (int i = 0; i < 8; i++) {
+        // Bits from pattern table
+        uint8_t bit0 = (tileLSB >> (7 - i)) & 1;
+        uint8_t bit1 = (tileMSB >> (7 - i)) & 1;
+
+        uint8_t colorIndex = (bit1 << 1) | bit0; // Combine to 2-bit color index
+
+        int x = tileX * 8 + i;
+        int y = scanline;
+
+        if (x < 256 && y < 240) {
+            framebuffer[y * 256 + x] = colorIndex; // Save to framebuffer
+        }
+    }
+}
+
+void PPU::step() {
+    // Do something based on current scanline and cycle
+    if (scanline >= 0 && scanline <= 239) {
+        // Visible scanlines
+        if (cycle == 1) {
+            // Start of scanline, fetch background, etc.
+        }
+        if (cycle == 256) {
+            // End of tile fetch
+        }
+        if (cycle == 340) {
+            // Move to next scanline
+        }
+    }
+    else if (scanline == 240) {
+        // Post-render line, do nothing
+    }
+    else if (scanline == 241 && cycle == 1) {
+        // Enter VBlank
+        setStatusFlag(true); // (You'll need to define this)
+    }
+    else if (scanline == 261 && cycle == 1) {
+        // Exit VBlank (start pre-render)
+        setStatusFlag(false);
+    }
+
+    // Advance the timing
+    cycle++;
+    if (cycle >= 341) {
+        cycle = 0;
+        scanline++;
+        if (scanline >= 262) {
+            scanline = 0;
+            frame_complete = true;
+        }
+    }
 }

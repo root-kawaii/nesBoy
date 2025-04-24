@@ -200,6 +200,30 @@ main.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\cpu_6502.dir\build.make CMakeFiles/cpu_6502.dir/main.cpp.s
 .PHONY : main.cpp.s
 
+ppu.obj: ppu.cpp.obj
+.PHONY : ppu.obj
+
+# target to build an object file
+ppu.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\cpu_6502.dir\build.make CMakeFiles/cpu_6502.dir/ppu.cpp.obj
+.PHONY : ppu.cpp.obj
+
+ppu.i: ppu.cpp.i
+.PHONY : ppu.i
+
+# target to preprocess a source file
+ppu.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\cpu_6502.dir\build.make CMakeFiles/cpu_6502.dir/ppu.cpp.i
+.PHONY : ppu.cpp.i
+
+ppu.s: ppu.cpp.s
+.PHONY : ppu.s
+
+# target to generate assembly for a file
+ppu.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\cpu_6502.dir\build.make CMakeFiles/cpu_6502.dir/ppu.cpp.s
+.PHONY : ppu.cpp.s
+
 # Help Target
 help:
 	@echo The following are some of the valid targets for this Makefile:
@@ -218,6 +242,9 @@ help:
 	@echo ... main.obj
 	@echo ... main.i
 	@echo ... main.s
+	@echo ... ppu.obj
+	@echo ... ppu.i
+	@echo ... ppu.s
 .PHONY : help
 
 

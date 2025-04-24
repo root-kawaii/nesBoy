@@ -84,12 +84,12 @@ clean: CMakeFiles/cpu_6502.dir/clean
 CMakeFiles/cpu_6502.dir/all:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\cpu_6502.dir\build.make CMakeFiles/cpu_6502.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\cpu_6502.dir\build.make CMakeFiles/cpu_6502.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=C:\Users\teore\Desktop\cpu_6502\build\CMakeFiles --progress-num=1,2,3,4 "Built target cpu_6502"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=C:\Users\teore\Desktop\cpu_6502\build\CMakeFiles --progress-num=1,2,3,4,5 "Built target cpu_6502"
 .PHONY : CMakeFiles/cpu_6502.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/cpu_6502.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start C:\Users\teore\Desktop\cpu_6502\build\CMakeFiles 4
+	$(CMAKE_COMMAND) -E cmake_progress_start C:\Users\teore\Desktop\cpu_6502\build\CMakeFiles 5
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\Makefile2 CMakeFiles/cpu_6502.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start C:\Users\teore\Desktop\cpu_6502\build\CMakeFiles 0
 .PHONY : CMakeFiles/cpu_6502.dir/rule
@@ -101,7 +101,7 @@ cpu_6502: CMakeFiles/cpu_6502.dir/rule
 # codegen rule for target.
 CMakeFiles/cpu_6502.dir/codegen:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\cpu_6502.dir\build.make CMakeFiles/cpu_6502.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=C:\Users\teore\Desktop\cpu_6502\build\CMakeFiles --progress-num=1,2,3,4 "Finished codegen for target cpu_6502"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=C:\Users\teore\Desktop\cpu_6502\build\CMakeFiles --progress-num=1,2,3,4,5 "Finished codegen for target cpu_6502"
 .PHONY : CMakeFiles/cpu_6502.dir/codegen
 
 # clean rule for target.

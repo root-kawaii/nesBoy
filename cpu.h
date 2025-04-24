@@ -3,7 +3,6 @@
 
 #include <cstdint>
 #include <array>
-#include "bus.h"  // Include bus.h since the CPU interacts with the Bus
 
 enum FLAGS6502 {
     C = (1 << 0), // Carry
@@ -45,5 +44,8 @@ public:
 private:
     Bus* bus = nullptr;
 };
+
+
+
 
 #endif // CPU6502_H

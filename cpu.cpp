@@ -1,4 +1,5 @@
 #include "cpu.h"
+#include "bus.h"
 #include <iostream>
 
 void CPU6502::setFlag(FLAGS6502 flag, bool value) {
@@ -22,6 +23,8 @@ void CPU6502::reset() {
 void CPU6502::step() {
     uint8_t opcode = read(PC++);
     execute(opcode);
+    if (bus)
+        bus->ppu->step(); // Let PPU run in sync
 }
 
 uint8_t CPU6502::read(uint16_t addr) {
@@ -116,5 +119,5 @@ void CPU6502::execute(uint8_t opcode) {
 }
 
 void CPU6502::ConnectBus(Bus* n) {
-    bus = n;
+    this->bus = n;
 }

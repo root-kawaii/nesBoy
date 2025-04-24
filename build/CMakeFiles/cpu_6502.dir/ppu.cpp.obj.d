@@ -1,25 +1,13 @@
-CMakeFiles/cpu_6502.dir/cpu.cpp.obj: \
- C:\Users\teore\Desktop\cpu_6502\cpu.cpp \
- C:\Users\teore\Desktop\cpu_6502\cpu.h \
- C:/Users/teore/scoop/apps/mingw/14.2.0-rt_v12-rev1/lib/gcc/x86_64-w64-mingw32/14.2.0/include/c++/cstdint \
+CMakeFiles/cpu_6502.dir/ppu.cpp.obj: \
+ C:\Users\teore\Desktop\cpu_6502\ppu.cpp \
+ C:\Users\teore\Desktop\cpu_6502\ppu.h \
+ C:/Users/teore/scoop/apps/mingw/14.2.0-rt_v12-rev1/lib/gcc/x86_64-w64-mingw32/14.2.0/include/c++/array \
+ C:/Users/teore/scoop/apps/mingw/14.2.0-rt_v12-rev1/lib/gcc/x86_64-w64-mingw32/14.2.0/include/c++/compare \
+ C:/Users/teore/scoop/apps/mingw/14.2.0-rt_v12-rev1/lib/gcc/x86_64-w64-mingw32/14.2.0/include/c++/bits/version.h \
  C:/Users/teore/scoop/apps/mingw/14.2.0-rt_v12-rev1/lib/gcc/x86_64-w64-mingw32/14.2.0/include/c++/x86_64-w64-mingw32/bits/c++config.h \
  C:/Users/teore/scoop/apps/mingw/14.2.0-rt_v12-rev1/lib/gcc/x86_64-w64-mingw32/14.2.0/include/c++/x86_64-w64-mingw32/bits/os_defines.h \
  C:/Users/teore/scoop/apps/mingw/14.2.0-rt_v12-rev1/lib/gcc/x86_64-w64-mingw32/14.2.0/include/c++/x86_64-w64-mingw32/bits/cpu_defines.h \
  C:/Users/teore/scoop/apps/mingw/14.2.0-rt_v12-rev1/lib/gcc/x86_64-w64-mingw32/14.2.0/include/c++/pstl/pstl_config.h \
- C:/Users/teore/scoop/apps/mingw/14.2.0-rt_v12-rev1/lib/gcc/x86_64-w64-mingw32/14.2.0/include/stdint.h \
- C:/Users/teore/scoop/apps/mingw/14.2.0-rt_v12-rev1/x86_64-w64-mingw32/include/stdint.h \
- C:/Users/teore/scoop/apps/mingw/14.2.0-rt_v12-rev1/x86_64-w64-mingw32/include/crtdefs.h \
- C:/Users/teore/scoop/apps/mingw/14.2.0-rt_v12-rev1/x86_64-w64-mingw32/include/corecrt.h \
- C:/Users/teore/scoop/apps/mingw/14.2.0-rt_v12-rev1/x86_64-w64-mingw32/include/_mingw.h \
- C:/Users/teore/scoop/apps/mingw/14.2.0-rt_v12-rev1/x86_64-w64-mingw32/include/_mingw_mac.h \
- C:/Users/teore/scoop/apps/mingw/14.2.0-rt_v12-rev1/x86_64-w64-mingw32/include/_mingw_secapi.h \
- C:/Users/teore/scoop/apps/mingw/14.2.0-rt_v12-rev1/x86_64-w64-mingw32/include/vadefs.h \
- C:/Users/teore/scoop/apps/mingw/14.2.0-rt_v12-rev1/x86_64-w64-mingw32/include/sdks/_mingw_ddk.h \
- C:/Users/teore/scoop/apps/mingw/14.2.0-rt_v12-rev1/lib/gcc/x86_64-w64-mingw32/14.2.0/include/stddef.h \
- C:/Users/teore/scoop/apps/mingw/14.2.0-rt_v12-rev1/x86_64-w64-mingw32/include/stddef.h \
- C:/Users/teore/scoop/apps/mingw/14.2.0-rt_v12-rev1/lib/gcc/x86_64-w64-mingw32/14.2.0/include/c++/array \
- C:/Users/teore/scoop/apps/mingw/14.2.0-rt_v12-rev1/lib/gcc/x86_64-w64-mingw32/14.2.0/include/c++/compare \
- C:/Users/teore/scoop/apps/mingw/14.2.0-rt_v12-rev1/lib/gcc/x86_64-w64-mingw32/14.2.0/include/c++/bits/version.h \
  C:/Users/teore/scoop/apps/mingw/14.2.0-rt_v12-rev1/lib/gcc/x86_64-w64-mingw32/14.2.0/include/c++/initializer_list \
  C:/Users/teore/scoop/apps/mingw/14.2.0-rt_v12-rev1/lib/gcc/x86_64-w64-mingw32/14.2.0/include/c++/type_traits \
  C:/Users/teore/scoop/apps/mingw/14.2.0-rt_v12-rev1/lib/gcc/x86_64-w64-mingw32/14.2.0/include/c++/bits/functexcept.h \
@@ -42,8 +30,18 @@ CMakeFiles/cpu_6502.dir/cpu.cpp.obj: \
  C:/Users/teore/scoop/apps/mingw/14.2.0-rt_v12-rev1/lib/gcc/x86_64-w64-mingw32/14.2.0/include/c++/bit \
  C:/Users/teore/scoop/apps/mingw/14.2.0-rt_v12-rev1/lib/gcc/x86_64-w64-mingw32/14.2.0/include/c++/concepts \
  C:/Users/teore/scoop/apps/mingw/14.2.0-rt_v12-rev1/lib/gcc/x86_64-w64-mingw32/14.2.0/include/c++/bits/range_access.h \
- C:\Users\teore\Desktop\cpu_6502\bus.h \
- C:\Users\teore\Desktop\cpu_6502\ppu.h \
+ C:/Users/teore/scoop/apps/mingw/14.2.0-rt_v12-rev1/lib/gcc/x86_64-w64-mingw32/14.2.0/include/c++/cstdint \
+ C:/Users/teore/scoop/apps/mingw/14.2.0-rt_v12-rev1/lib/gcc/x86_64-w64-mingw32/14.2.0/include/stdint.h \
+ C:/Users/teore/scoop/apps/mingw/14.2.0-rt_v12-rev1/x86_64-w64-mingw32/include/stdint.h \
+ C:/Users/teore/scoop/apps/mingw/14.2.0-rt_v12-rev1/x86_64-w64-mingw32/include/crtdefs.h \
+ C:/Users/teore/scoop/apps/mingw/14.2.0-rt_v12-rev1/x86_64-w64-mingw32/include/corecrt.h \
+ C:/Users/teore/scoop/apps/mingw/14.2.0-rt_v12-rev1/x86_64-w64-mingw32/include/_mingw.h \
+ C:/Users/teore/scoop/apps/mingw/14.2.0-rt_v12-rev1/x86_64-w64-mingw32/include/_mingw_mac.h \
+ C:/Users/teore/scoop/apps/mingw/14.2.0-rt_v12-rev1/x86_64-w64-mingw32/include/_mingw_secapi.h \
+ C:/Users/teore/scoop/apps/mingw/14.2.0-rt_v12-rev1/x86_64-w64-mingw32/include/vadefs.h \
+ C:/Users/teore/scoop/apps/mingw/14.2.0-rt_v12-rev1/x86_64-w64-mingw32/include/sdks/_mingw_ddk.h \
+ C:/Users/teore/scoop/apps/mingw/14.2.0-rt_v12-rev1/lib/gcc/x86_64-w64-mingw32/14.2.0/include/stddef.h \
+ C:/Users/teore/scoop/apps/mingw/14.2.0-rt_v12-rev1/x86_64-w64-mingw32/include/stddef.h \
  C:/Users/teore/scoop/apps/mingw/14.2.0-rt_v12-rev1/lib/gcc/x86_64-w64-mingw32/14.2.0/include/c++/iostream \
  C:/Users/teore/scoop/apps/mingw/14.2.0-rt_v12-rev1/lib/gcc/x86_64-w64-mingw32/14.2.0/include/c++/bits/requires_hosted.h \
  C:/Users/teore/scoop/apps/mingw/14.2.0-rt_v12-rev1/lib/gcc/x86_64-w64-mingw32/14.2.0/include/c++/ostream \
