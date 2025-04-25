@@ -18,6 +18,7 @@ add_executable(cpu_6502
     cpu.cpp
     bus.cpp
     ppu.cpp
+    rom_loader.cpp
 )
 
 # Link with SDL2 libraries

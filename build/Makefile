@@ -224,6 +224,30 @@ ppu.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\cpu_6502.dir\build.make CMakeFiles/cpu_6502.dir/ppu.cpp.s
 .PHONY : ppu.cpp.s
 
+rom_loader.obj: rom_loader.cpp.obj
+.PHONY : rom_loader.obj
+
+# target to build an object file
+rom_loader.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\cpu_6502.dir\build.make CMakeFiles/cpu_6502.dir/rom_loader.cpp.obj
+.PHONY : rom_loader.cpp.obj
+
+rom_loader.i: rom_loader.cpp.i
+.PHONY : rom_loader.i
+
+# target to preprocess a source file
+rom_loader.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\cpu_6502.dir\build.make CMakeFiles/cpu_6502.dir/rom_loader.cpp.i
+.PHONY : rom_loader.cpp.i
+
+rom_loader.s: rom_loader.cpp.s
+.PHONY : rom_loader.s
+
+# target to generate assembly for a file
+rom_loader.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\cpu_6502.dir\build.make CMakeFiles/cpu_6502.dir/rom_loader.cpp.s
+.PHONY : rom_loader.cpp.s
+
 # Help Target
 help:
 	@echo The following are some of the valid targets for this Makefile:
@@ -245,6 +269,9 @@ help:
 	@echo ... ppu.obj
 	@echo ... ppu.i
 	@echo ... ppu.s
+	@echo ... rom_loader.obj
+	@echo ... rom_loader.i
+	@echo ... rom_loader.s
 .PHONY : help
 
 

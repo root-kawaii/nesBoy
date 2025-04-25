@@ -12,6 +12,10 @@ public:
     uint8_t status;   // Status register (read-only by CPU)
     uint8_t oam_addr; // OAM (Object Attribute Memory) address for sprites
     uint8_t oam_data; // OAM data (sprite data)
+    uint8_t scroll;
+    uint8_t addr;
+    uint8_t data;
+    uint8_t oam_dma;
 
     const std::array<uint8_t, 256 * 240>& getFrame() const { return framebuffer; }
 

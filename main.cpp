@@ -3,6 +3,7 @@
 #include <SDL2/SDL.h>
 #include "bus.h"
 #include "cpu.h"
+#include "rom_loader.h"
 #include <iostream>
 
 #ifdef main
@@ -39,46 +40,39 @@ int main(int argc, char** argv) {
                            NES_WIDTH, NES_HEIGHT);
 
     Bus bus;                // wires up CPU/PPU
+    RomLoader romLoader;
     bus.cpu->reset();
 
     bool running = true;
     SDL_Event ev;
     int colorIndex = 0;
-    int startFrame = 0;
-    int timePassed = 0;
+    Uint32 colorTimer = 0;
+    Uint32 frameStart;
     int frameTime;
 
+    romLoader.loadRom("ff.nes");
+
     while (running) {
+        frameStart = SDL_GetTicks();
+        
         // --- Emulate one frame ---
+        // Commented out for now until CPU/PPU are ready
         // while (!bus.ppu->isFrameComplete()) {
         //     bus.cpu->step();
         // }
-        bus.ppu->resetFrameComplete();
-
+        // bus.ppu->resetFrameComplete();
 
         // --- Convert PPU framebuffer indices to actual pixels ---
+    
         void* pixels;
         int pitch;
         SDL_LockTexture(tex, nullptr, &pixels, &pitch);
-        auto frame = bus.ppu->getFrame();  // returns array<uint8_t,256*240>
         Uint32* dst = (Uint32*)pixels;
 
+        // Fill screen with current palette color
         for (int i = 0; i < NES_WIDTH * NES_HEIGHT; ++i) {
-            // uint8_t idx = frame[i];         // 0–3 in our minimal demo
-            dst[i] = nesPalette[colorIndex];   // ARGB color
+            dst[i] = nesPalette[colorIndex % 4];
         }
-
-        frameTime = SDL_GetTicks() - startFrame;
-        std::cout << timePassed << std::endl;
-        if(timePassed > 10000000 ){
-            colorIndex += 1;
-            timePassed = 0;
-        }
-        if (FRAME_DELAY > frameTime) {
-            SDL_Delay(FRAME_DELAY - frameTime);
-        }
-
-        
         SDL_UnlockTexture(tex);
 
         // --- Render to screen ---
@@ -86,13 +80,25 @@ int main(int argc, char** argv) {
         SDL_RenderCopy(ren, tex, nullptr, nullptr);
         SDL_RenderPresent(ren);
 
-        running = true;
         // --- Poll window events ---
         while (SDL_PollEvent(&ev)) {
             if (ev.type == SDL_QUIT)
                 running = false;
         }
-        timePassed += frameTime;
+        
+        // --- Frame timing control ---
+        frameTime = SDL_GetTicks() - frameStart;
+        if (FRAME_DELAY > frameTime) {
+            SDL_Delay(FRAME_DELAY - frameTime);
+        }
+        
+        // Update color every 2 seconds
+        colorTimer += frameTime;
+        if (colorTimer >= 2000) {
+            colorIndex++;
+            colorTimer = 0;
+            std::cout << "Changed color to index: " << colorIndex % 4 << std::endl;
+        }
     }
 
     SDL_DestroyTexture(tex);

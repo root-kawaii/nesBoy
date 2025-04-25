@@ -131,12 +131,28 @@ CMakeFiles/cpu_6502.dir/ppu.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/cpu_6502.dir/ppu.cpp.s"
 	C:\Users\teore\scoop\apps\mingw\current\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S C:\Users\teore\Desktop\cpu_6502\ppu.cpp -o CMakeFiles\cpu_6502.dir\ppu.cpp.s
 
+CMakeFiles/cpu_6502.dir/rom_loader.cpp.obj: CMakeFiles/cpu_6502.dir/flags.make
+CMakeFiles/cpu_6502.dir/rom_loader.cpp.obj: CMakeFiles/cpu_6502.dir/includes_CXX.rsp
+CMakeFiles/cpu_6502.dir/rom_loader.cpp.obj: C:/Users/teore/Desktop/cpu_6502/rom_loader.cpp
+CMakeFiles/cpu_6502.dir/rom_loader.cpp.obj: CMakeFiles/cpu_6502.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=C:\Users\teore\Desktop\cpu_6502\build\CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object CMakeFiles/cpu_6502.dir/rom_loader.cpp.obj"
+	C:\Users\teore\scoop\apps\mingw\current\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/cpu_6502.dir/rom_loader.cpp.obj -MF CMakeFiles\cpu_6502.dir\rom_loader.cpp.obj.d -o CMakeFiles\cpu_6502.dir\rom_loader.cpp.obj -c C:\Users\teore\Desktop\cpu_6502\rom_loader.cpp
+
+CMakeFiles/cpu_6502.dir/rom_loader.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/cpu_6502.dir/rom_loader.cpp.i"
+	C:\Users\teore\scoop\apps\mingw\current\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E C:\Users\teore\Desktop\cpu_6502\rom_loader.cpp > CMakeFiles\cpu_6502.dir\rom_loader.cpp.i
+
+CMakeFiles/cpu_6502.dir/rom_loader.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/cpu_6502.dir/rom_loader.cpp.s"
+	C:\Users\teore\scoop\apps\mingw\current\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S C:\Users\teore\Desktop\cpu_6502\rom_loader.cpp -o CMakeFiles\cpu_6502.dir\rom_loader.cpp.s
+
 # Object files for target cpu_6502
 cpu_6502_OBJECTS = \
 "CMakeFiles/cpu_6502.dir/main.cpp.obj" \
 "CMakeFiles/cpu_6502.dir/cpu.cpp.obj" \
 "CMakeFiles/cpu_6502.dir/bus.cpp.obj" \
-"CMakeFiles/cpu_6502.dir/ppu.cpp.obj"
+"CMakeFiles/cpu_6502.dir/ppu.cpp.obj" \
+"CMakeFiles/cpu_6502.dir/rom_loader.cpp.obj"
 
 # External object files for target cpu_6502
 cpu_6502_EXTERNAL_OBJECTS =
@@ -145,12 +161,13 @@ cpu_6502.exe: CMakeFiles/cpu_6502.dir/main.cpp.obj
 cpu_6502.exe: CMakeFiles/cpu_6502.dir/cpu.cpp.obj
 cpu_6502.exe: CMakeFiles/cpu_6502.dir/bus.cpp.obj
 cpu_6502.exe: CMakeFiles/cpu_6502.dir/ppu.cpp.obj
+cpu_6502.exe: CMakeFiles/cpu_6502.dir/rom_loader.cpp.obj
 cpu_6502.exe: CMakeFiles/cpu_6502.dir/build.make
 cpu_6502.exe: C:/Users/teore/scoop/apps/sdl2/current/lib/SDL2.lib
 cpu_6502.exe: CMakeFiles/cpu_6502.dir/linkLibs.rsp
 cpu_6502.exe: CMakeFiles/cpu_6502.dir/objects1.rsp
 cpu_6502.exe: CMakeFiles/cpu_6502.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=C:\Users\teore\Desktop\cpu_6502\build\CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Linking CXX executable cpu_6502.exe"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=C:\Users\teore\Desktop\cpu_6502\build\CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Linking CXX executable cpu_6502.exe"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles\cpu_6502.dir\link.txt --verbose=$(VERBOSE)
 	C:\Users\teore\scoop\apps\cmake\3.31.6\bin\cmake.exe -E copy_if_different C:/Users/teore/scoop/apps/sdl2/current/lib/SDL2.dll C:/Users/teore/Desktop/cpu_6502/build
 

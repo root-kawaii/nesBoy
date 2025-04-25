@@ -12,6 +12,7 @@ set(CMAKE_DEPENDS_DEPENDENCY_FILES
   "C:/Users/teore/Desktop/cpu_6502/cpu.cpp" "CMakeFiles/cpu_6502.dir/cpu.cpp.obj" "gcc" "CMakeFiles/cpu_6502.dir/cpu.cpp.obj.d"
   "C:/Users/teore/Desktop/cpu_6502/main.cpp" "CMakeFiles/cpu_6502.dir/main.cpp.obj" "gcc" "CMakeFiles/cpu_6502.dir/main.cpp.obj.d"
   "C:/Users/teore/Desktop/cpu_6502/ppu.cpp" "CMakeFiles/cpu_6502.dir/ppu.cpp.obj" "gcc" "CMakeFiles/cpu_6502.dir/ppu.cpp.obj.d"
+  "C:/Users/teore/Desktop/cpu_6502/rom_loader.cpp" "CMakeFiles/cpu_6502.dir/rom_loader.cpp.obj" "gcc" "CMakeFiles/cpu_6502.dir/rom_loader.cpp.obj.d"
   )
 
 # Targets to which this target links which contain Fortran sources.
