@@ -24,7 +24,7 @@ void CPU6502::step() {
     uint8_t opcode = read(PC++);
     execute(opcode);
     if (bus)
-        bus->ppu->step(); // Let PPU run in sync
+        bus->ppu->step(); // Let PPU run in syncc
 }
 
 uint8_t CPU6502::read(uint16_t addr) {

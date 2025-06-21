@@ -1,3 +1,0 @@
-C:\Users\teore\scoop\apps\cmake\3.31.6\bin\cmake.exe -E rm -f CMakeFiles\MySDLApp.dir/objects.a
-C:\Users\teore\scoop\apps\mingw\current\bin\ar.exe qc CMakeFiles\MySDLApp.dir/objects.a @CMakeFiles\MySDLApp.dir\objects1.rsp
-C:\Users\teore\scoop\apps\mingw\current\bin\g++.exe -Wl,--whole-archive CMakeFiles\MySDLApp.dir/objects.a -Wl,--no-whole-archive -o MySDLApp.exe -Wl,--out-implib,libMySDLApp.dll.a -Wl,--major-image-version,0,--minor-image-version,0 @CMakeFiles\MySDLApp.dir\linkLibs.rsp
