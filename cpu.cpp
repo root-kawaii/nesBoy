@@ -49,7 +49,8 @@ void CPU6502::execute(uint8_t opcode) {
             break;
         }
 
-        case 0xA5: { // LDA Zero Page
+        // LDA Zero Page
+        case 0xA5: { 
             uint8_t addr = read(PC++);
             A = read(addr);
             setFlag(Z, A == 0x00);
@@ -57,8 +58,9 @@ void CPU6502::execute(uint8_t opcode) {
             break;
         }
 
-                        // LDA Absolute
-        case 0xAD: {
+                
+        // LDA Absolute
+        case 0xAD: { 
             uint16_t addr = read(PC++) | (read(PC++) << 8);
             A = read(addr);
             setFlag(Z, A == 0x00);
@@ -944,6 +946,509 @@ void CPU6502::execute(uint8_t opcode) {
         // SED - Set Decimal Mode
         case 0xF8: {
             setFlag(D, true);  // Note: NES 6502 doesn't actually use decimal mode
+            break;
+        }
+
+        // SBC - Subtract with Carry
+        case 0xE9: { // SBC Immediate
+            uint8_t value = read(PC++);
+            uint16_t result = A - value - (getFlag(C) ? 0 : 1);
+            setFlag(C, result <= 0xFF);
+            setFlag(Z, (result & 0xFF) == 0x00);
+            setFlag(N, result & 0x80);
+            setFlag(V, ((A ^ value) & (A ^ (result & 0xFF)) & 0x80) != 0);
+            A = result & 0xFF;
+            break;
+        }
+
+        case 0xE5: { // SBC Zero Page
+            uint8_t addr = read(PC++);
+            uint8_t value = read(addr);
+            uint16_t result = A - value - (getFlag(C) ? 0 : 1);
+            setFlag(C, result <= 0xFF);
+            setFlag(Z, (result & 0xFF) == 0x00);
+            setFlag(N, result & 0x80);
+            setFlag(V, ((A ^ value) & (A ^ (result & 0xFF)) & 0x80) != 0);
+            A = result & 0xFF;
+            break;
+        }
+
+        case 0xF5: { // SBC Zero Page,X
+            uint8_t addr = (read(PC++) + X) & 0xFF;
+            uint8_t value = read(addr);
+            uint16_t result = A - value - (getFlag(C) ? 0 : 1);
+            setFlag(C, result <= 0xFF);
+            setFlag(Z, (result & 0xFF) == 0x00);
+            setFlag(N, result & 0x80);
+            setFlag(V, ((A ^ value) & (A ^ (result & 0xFF)) & 0x80) != 0);
+            A = result & 0xFF;
+            break;
+        }
+
+        case 0xED: { // SBC Absolute
+            uint16_t addr = read(PC++) | (read(PC++) << 8);
+            uint8_t value = read(addr);
+            uint16_t result = A - value - (getFlag(C) ? 0 : 1);
+            setFlag(C, result <= 0xFF);
+            setFlag(Z, (result & 0xFF) == 0x00);
+            setFlag(N, result & 0x80);
+            setFlag(V, ((A ^ value) & (A ^ (result & 0xFF)) & 0x80) != 0);
+            A = result & 0xFF;
+            break;
+        }
+
+        case 0xFD: { // SBC Absolute,X
+            uint16_t addr = (read(PC++) | (read(PC++) << 8)) + X;
+            uint8_t value = read(addr);
+            uint16_t result = A - value - (getFlag(C) ? 0 : 1);
+            setFlag(C, result <= 0xFF);
+            setFlag(Z, (result & 0xFF) == 0x00);
+            setFlag(N, result & 0x80);
+            setFlag(V, ((A ^ value) & (A ^ (result & 0xFF)) & 0x80) != 0);
+            A = result & 0xFF;
+            break;
+        }
+
+        case 0xF9: { // SBC Absolute,Y
+            uint16_t addr = (read(PC++) | (read(PC++) << 8)) + Y;
+            uint8_t value = read(addr);
+            uint16_t result = A - value - (getFlag(C) ? 0 : 1);
+            setFlag(C, result <= 0xFF);
+            setFlag(Z, (result & 0xFF) == 0x00);
+            setFlag(N, result & 0x80);
+            setFlag(V, ((A ^ value) & (A ^ (result & 0xFF)) & 0x80) != 0);
+            A = result & 0xFF;
+            break;
+        }
+
+        case 0xE1: { // SBC (Indirect,X)
+            uint8_t zp = read(PC++);
+            uint16_t addr = (read((zp + X) & 0xFF) | (read((zp + X + 1) & 0xFF) << 8));
+            uint8_t value = read(addr);
+            uint16_t result = A - value - (getFlag(C) ? 0 : 1);
+            setFlag(C, result <= 0xFF);
+            setFlag(Z, (result & 0xFF) == 0x00);
+            setFlag(N, result & 0x80);
+            setFlag(V, ((A ^ value) & (A ^ (result & 0xFF)) & 0x80) != 0);
+            A = result & 0xFF;
+            break;
+        }
+
+        case 0xF1: { // SBC (Indirect),Y
+            uint8_t zp = read(PC++);
+            uint16_t addr = (read(zp) | (read((zp + 1) & 0xFF) << 8)) + Y;
+            uint8_t value = read(addr);
+            uint16_t result = A - value - (getFlag(C) ? 0 : 1);
+            setFlag(C, result <= 0xFF);
+            setFlag(Z, (result & 0xFF) == 0x00);
+            setFlag(N, result & 0x80);
+            setFlag(V, ((A ^ value) & (A ^ (result & 0xFF)) & 0x80) != 0);
+            A = result & 0xFF;
+            break;
+        }
+
+        // ASL - Arithmetic Shift Left
+        case 0x0A: { // ASL Accumulator
+            setFlag(C, A & 0x80);
+            A <<= 1;
+            setFlag(Z, A == 0x00);
+            setFlag(N, A & 0x80);
+            break;
+        }
+
+        case 0x06: { // ASL Zero Page
+            uint8_t addr = read(PC++);
+            uint8_t value = read(addr);
+            setFlag(C, value & 0x80);
+            value <<= 1;
+            write(addr, value);
+            setFlag(Z, value == 0x00);
+            setFlag(N, value & 0x80);
+            break;
+        }
+
+        case 0x16: { // ASL Zero Page,X
+            uint8_t addr = (read(PC++) + X) & 0xFF;
+            uint8_t value = read(addr);
+            setFlag(C, value & 0x80);
+            value <<= 1;
+            write(addr, value);
+            setFlag(Z, value == 0x00);
+            setFlag(N, value & 0x80);
+            break;
+        }
+
+        case 0x0E: { // ASL Absolute
+            uint16_t addr = read(PC++) | (read(PC++) << 8);
+            uint8_t value = read(addr);
+            setFlag(C, value & 0x80);
+            value <<= 1;
+            write(addr, value);
+            setFlag(Z, value == 0x00);
+            setFlag(N, value & 0x80);
+            break;
+        }
+
+        case 0x1E: { // ASL Absolute,X
+            uint16_t addr = (read(PC++) | (read(PC++) << 8)) + X;
+            uint8_t value = read(addr);
+            setFlag(C, value & 0x80);
+            value <<= 1;
+            write(addr, value);
+            setFlag(Z, value == 0x00);
+            setFlag(N, value & 0x80);
+            break;
+        }
+
+        // LSR - Logical Shift Right
+        case 0x4A: { // LSR Accumulator
+            setFlag(C, A & 0x01);
+            A >>= 1;
+            setFlag(Z, A == 0x00);
+            setFlag(N, false); // Always clear N for LSR
+            break;
+        }
+
+        case 0x46: { // LSR Zero Page
+            uint8_t addr = read(PC++);
+            uint8_t value = read(addr);
+            setFlag(C, value & 0x01);
+            value >>= 1;
+            write(addr, value);
+            setFlag(Z, value == 0x00);
+            setFlag(N, false);
+            break;
+        }
+
+        case 0x56: { // LSR Zero Page,X
+            uint8_t addr = (read(PC++) + X) & 0xFF;
+            uint8_t value = read(addr);
+            setFlag(C, value & 0x01);
+            value >>= 1;
+            write(addr, value);
+            setFlag(Z, value == 0x00);
+            setFlag(N, false);
+            break;
+        }
+
+        case 0x4E: { // LSR Absolute
+            uint16_t addr = read(PC++) | (read(PC++) << 8);
+            uint8_t value = read(addr);
+            setFlag(C, value & 0x01);
+            value >>= 1;
+            write(addr, value);
+            setFlag(Z, value == 0x00);
+            setFlag(N, false);
+            break;
+        }
+
+        case 0x5E: { // LSR Absolute,X
+            uint16_t addr = (read(PC++) | (read(PC++) << 8)) + X;
+            uint8_t value = read(addr);
+            setFlag(C, value & 0x01);
+            value >>= 1;
+            write(addr, value);
+            setFlag(Z, value == 0x00);
+            setFlag(N, false);
+            break;
+        }
+
+        // ROL - Rotate Left
+        case 0x2A: { // ROL Accumulator
+            bool oldCarry = getFlag(C);
+            setFlag(C, A & 0x80);
+            A = (A << 1) | (oldCarry ? 1 : 0);
+            setFlag(Z, A == 0x00);
+            setFlag(N, A & 0x80);
+            break;
+        }
+
+        case 0x26: { // ROL Zero Page
+            uint8_t addr = read(PC++);
+            uint8_t value = read(addr);
+            bool oldCarry = getFlag(C);
+            setFlag(C, value & 0x80);
+            value = (value << 1) | (oldCarry ? 1 : 0);
+            write(addr, value);
+            setFlag(Z, value == 0x00);
+            setFlag(N, value & 0x80);
+            break;
+        }
+
+        case 0x36: { // ROL Zero Page,X
+            uint8_t addr = (read(PC++) + X) & 0xFF;
+            uint8_t value = read(addr);
+            bool oldCarry = getFlag(C);
+            setFlag(C, value & 0x80);
+            value = (value << 1) | (oldCarry ? 1 : 0);
+            write(addr, value);
+            setFlag(Z, value == 0x00);
+            setFlag(N, value & 0x80);
+            break;
+        }
+
+        case 0x2E: { // ROL Absolute
+            uint16_t addr = read(PC++) | (read(PC++) << 8);
+            uint8_t value = read(addr);
+            bool oldCarry = getFlag(C);
+            setFlag(C, value & 0x80);
+            value = (value << 1) | (oldCarry ? 1 : 0);
+            write(addr, value);
+            setFlag(Z, value == 0x00);
+            setFlag(N, value & 0x80);
+            break;
+        }
+
+        case 0x3E: { // ROL Absolute,X
+            uint16_t addr = (read(PC++) | (read(PC++) << 8)) + X;
+            uint8_t value = read(addr);
+            bool oldCarry = getFlag(C);
+            setFlag(C, value & 0x80);
+            value = (value << 1) | (oldCarry ? 1 : 0);
+            write(addr, value);
+            setFlag(Z, value == 0x00);
+            setFlag(N, value & 0x80);
+            break;
+        }
+
+        // ROR - Rotate Right
+        case 0x6A: { // ROR Accumulator
+            bool oldCarry = getFlag(C);
+            setFlag(C, A & 0x01);
+            A = (A >> 1) | (oldCarry ? 0x80 : 0);
+            setFlag(Z, A == 0x00);
+            setFlag(N, A & 0x80);
+            break;
+        }
+
+        case 0x66: { // ROR Zero Page
+            uint8_t addr = read(PC++);
+            uint8_t value = read(addr);
+            bool oldCarry = getFlag(C);
+            setFlag(C, value & 0x01);
+            value = (value >> 1) | (oldCarry ? 0x80 : 0);
+            write(addr, value);
+            setFlag(Z, value == 0x00);
+            setFlag(N, value & 0x80);
+            break;
+        }
+
+        case 0x76: { // ROR Zero Page,X
+            uint8_t addr = (read(PC++) + X) & 0xFF;
+            uint8_t value = read(addr);
+            bool oldCarry = getFlag(C);
+            setFlag(C, value & 0x01);
+            value = (value >> 1) | (oldCarry ? 0x80 : 0);
+            write(addr, value);
+            setFlag(Z, value == 0x00);
+            setFlag(N, value & 0x80);
+            break;
+        }
+
+        case 0x6E: { // ROR Absolute
+            uint16_t addr = read(PC++) | (read(PC++) << 8);
+            uint8_t value = read(addr);
+            bool oldCarry = getFlag(C);
+            setFlag(C, value & 0x01);
+            value = (value >> 1) | (oldCarry ? 0x80 : 0);
+            write(addr, value);
+            setFlag(Z, value == 0x00);
+            setFlag(N, value & 0x80);
+            break;
+        }
+
+        case 0x7E: { // ROR Absolute,X
+            uint16_t addr = (read(PC++) | (read(PC++) << 8)) + X;
+            uint8_t value = read(addr);
+            bool oldCarry = getFlag(C);
+            setFlag(C, value & 0x01);
+            value = (value >> 1) | (oldCarry ? 0x80 : 0);
+            write(addr, value);
+            setFlag(Z, value == 0x00);
+            setFlag(N, value & 0x80);
+            break;
+        }
+
+        // BIT - Bit Test
+        case 0x24: { // BIT Zero Page
+            uint8_t addr = read(PC++);
+            uint8_t value = read(addr);
+            setFlag(Z, (A & value) == 0);
+            setFlag(N, value & 0x80);
+            setFlag(V, value & 0x40);
+            break;
+        }
+
+        case 0x2C: { // BIT Absolute
+            uint16_t addr = read(PC++) | (read(PC++) << 8);
+            uint8_t value = read(addr);
+            setFlag(Z, (A & value) == 0);
+            setFlag(N, value & 0x80);
+            setFlag(V, value & 0x40);
+            break;
+        }
+
+        // Missing ORA addressing modes
+        case 0x1D: { // ORA Absolute,X
+            uint16_t addr = (read(PC++) | (read(PC++) << 8)) + X;
+            A |= read(addr);
+            setFlag(Z, A == 0x00);
+            setFlag(N, A & 0x80);
+            break;
+        }
+
+        case 0x19: { // ORA Absolute,Y
+            uint16_t addr = (read(PC++) | (read(PC++) << 8)) + Y;
+            A |= read(addr);
+            setFlag(Z, A == 0x00);
+            setFlag(N, A & 0x80);
+            break;
+        }
+
+        case 0x01: { // ORA (Indirect,X)
+            uint8_t zp = read(PC++);
+            uint16_t addr = (read((zp + X) & 0xFF) | (read((zp + X + 1) & 0xFF) << 8));
+            A |= read(addr);
+            setFlag(Z, A == 0x00);
+            setFlag(N, A & 0x80);
+            break;
+        }
+
+        case 0x11: { // ORA (Indirect),Y
+            uint8_t zp = read(PC++);
+            uint16_t addr = (read(zp) | (read((zp + 1) & 0xFF) << 8)) + Y;
+            A |= read(addr);
+            setFlag(Z, A == 0x00);
+            setFlag(N, A & 0x80);
+            break;
+        }
+
+        // Missing EOR addressing modes
+        case 0x55: { // EOR Zero Page,X
+            uint8_t addr = (read(PC++) + X) & 0xFF;
+            A ^= read(addr);
+            setFlag(Z, A == 0x00);
+            setFlag(N, A & 0x80);
+            break;
+        }
+
+        case 0x5D: { // EOR Absolute,X
+            uint16_t addr = (read(PC++) | (read(PC++) << 8)) + X;
+            A ^= read(addr);
+            setFlag(Z, A == 0x00);
+            setFlag(N, A & 0x80);
+            break;
+        }
+
+        case 0x59: { // EOR Absolute,Y
+            uint16_t addr = (read(PC++) | (read(PC++) << 8)) + Y;
+            A ^= read(addr);
+            setFlag(Z, A == 0x00);
+            setFlag(N, A & 0x80);
+            break;
+        }
+
+        case 0x41: { // EOR (Indirect,X)
+            uint8_t zp = read(PC++);
+            uint16_t addr = (read((zp + X) & 0xFF) | (read((zp + X + 1) & 0xFF) << 8));
+            A ^= read(addr);
+            setFlag(Z, A == 0x00);
+            setFlag(N, A & 0x80);
+            break;
+        }
+
+        case 0x51: { // EOR (Indirect),Y
+            uint8_t zp = read(PC++);
+            uint16_t addr = (read(zp) | (read((zp + 1) & 0xFF) << 8)) + Y;
+            A ^= read(addr);
+            setFlag(Z, A == 0x00);
+            setFlag(N, A & 0x80);
+            break;
+        }
+
+        // Missing ADC addressing modes
+        case 0x75: { // ADC Zero Page,X
+            uint8_t addr = (read(PC++) + X) & 0xFF;
+            uint8_t value = read(addr);
+            uint16_t result = A + value + (getFlag(C) ? 1 : 0);
+            setFlag(C, result > 0xFF);
+            setFlag(Z, (result & 0xFF) == 0x00);
+            setFlag(N, result & 0x80);
+            setFlag(V, ((A ^ value) & 0x80) == 0 && ((A ^ (result & 0xFF)) & 0x80) != 0);
+            A = result & 0xFF;
+            break;
+        }
+
+        case 0x7D: { // ADC Absolute,X
+            uint16_t addr = (read(PC++) | (read(PC++) << 8)) + X;
+            uint8_t value = read(addr);
+            uint16_t result = A + value + (getFlag(C) ? 1 : 0);
+            setFlag(C, result > 0xFF);
+            setFlag(Z, (result & 0xFF) == 0x00);
+            setFlag(N, result & 0x80);
+            setFlag(V, ((A ^ value) & 0x80) == 0 && ((A ^ (result & 0xFF)) & 0x80) != 0);
+            A = result & 0xFF;
+            break;
+        }
+
+        case 0x79: { // ADC Absolute,Y
+            uint16_t addr = (read(PC++) | (read(PC++) << 8)) + Y;
+            uint8_t value = read(addr);
+            uint16_t result = A + value + (getFlag(C) ? 1 : 0);
+            setFlag(C, result > 0xFF);
+            setFlag(Z, (result & 0xFF) == 0x00);
+            setFlag(N, result & 0x80);
+            setFlag(V, ((A ^ value) & 0x80) == 0 && ((A ^ (result & 0xFF)) & 0x80) != 0);
+            A = result & 0xFF;
+            break;
+        }
+
+        case 0x61: { // ADC (Indirect,X)
+            uint8_t zp = read(PC++);
+            uint16_t addr = (read((zp + X) & 0xFF) | (read((zp + X + 1) & 0xFF) << 8));
+            uint8_t value = read(addr);
+            uint16_t result = A + value + (getFlag(C) ? 1 : 0);
+            setFlag(C, result > 0xFF);
+            setFlag(Z, (result & 0xFF) == 0x00);
+            setFlag(N, result & 0x80);
+            setFlag(V, ((A ^ value) & 0x80) == 0 && ((A ^ (result & 0xFF)) & 0x80) != 0);
+            A = result & 0xFF;
+            break;
+        }
+
+        case 0x71: { // ADC (Indirect),Y
+            uint8_t zp = read(PC++);
+            uint16_t addr = (read(zp) | (read((zp + 1) & 0xFF) << 8)) + Y;
+            uint8_t value = read(addr);
+            uint16_t result = A + value + (getFlag(C) ? 1 : 0);
+            setFlag(C, result > 0xFF);
+            setFlag(Z, (result & 0xFF) == 0x00);
+            setFlag(N, result & 0x80);
+            setFlag(V, ((A ^ value) & 0x80) == 0 && ((A ^ (result & 0xFF)) & 0x80) != 0);
+            A = result & 0xFF;
+            break;
+        }
+
+        // Essential Control Instructions
+        case 0xEA: { // NOP - No Operation
+            break;
+        }
+
+        case 0x00: { // BRK - Break
+            PC++; // Skip the padding byte
+            write(0x100 + SP--, (PC >> 8) & 0xFF);
+            write(0x100 + SP--, PC & 0xFF);
+            write(0x100 + SP--, P | 0x10); // Set break flag
+            setFlag(I, true);
+            PC = read(0xFFFE) | (read(0xFFFF) << 8);
+            break;
+        }
+
+        case 0x40: { // RTI - Return from Interrupt
+            P = read(0x100 + ++SP) & ~0x10; // Clear break flag
+            uint8_t lo = read(0x100 + ++SP);
+            uint8_t hi = read(0x100 + ++SP);
+            PC = (hi << 8) | lo;
             break;
         }
 
