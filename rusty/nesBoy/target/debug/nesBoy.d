@@ -1,0 +1,1 @@
+/Users/root-kawaii/Desktop/nesBoy/rusty/nesBoy/target/debug/nesBoy: /Users/root-kawaii/Desktop/nesBoy/rusty/nesBoy/src/bus.rs /Users/root-kawaii/Desktop/nesBoy/rusty/nesBoy/src/main.rs /Users/root-kawaii/Desktop/nesBoy/rusty/nesBoy/src/ppu.rs /Users/root-kawaii/Desktop/nesBoy/rusty/nesBoy/src/rom_loader.rs
