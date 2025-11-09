@@ -55,6 +55,10 @@ private:
 
     void renderTile();
 
+    void spriteEvaluation();
+    void fetchSpriteData();
+    void renderSprites();
+
     int scanline = 0; // -1 (pre-render) to 261
     int cycle = 0;    // 0 to 340
     bool frame_complete = false;
