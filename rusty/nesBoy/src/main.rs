@@ -1,15 +1,18 @@
+mod add_register;
 mod bus;
-// mod cpu;
+mod controller_register;
+mod cpu;
 mod ppu;
 mod rom_loader;
 
+use sdl2::TimerSubsystem;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::pixels::PixelFormatEnum;
-use sdl2::TimerSubsystem;
 
 use bus::Bus;
-// use cpu::Cpu;
+use cpu::Cpu;
+use ppu::Ppu;
 use rom_loader::RomLoader;
 
 static NES_WIDTH: u64 = 256;
@@ -49,7 +52,7 @@ fn main() {
     // rom_loader.print_info();
 
     let mut bus = bus::Bus::new();
-    // let mut cpu = cpu::Cpu::new();
+    let mut cpu = cpu::Cpu::new(bus);
 
     while running {
         let frameStart = TimerSubsystem::ticks(&timer);
@@ -57,7 +60,7 @@ fn main() {
         // --- Emulate one frame ---
         // Commented out for now until CPU/PPU are ready
         // while (!bus.ppu->isFrameComplete()) {
-        //     bus.cpu->step();
+        cpu.step();
         // }
         // bus.ppu->resetFrameComplete();
 
@@ -106,5 +109,70 @@ fn main() {
             colorTimer = 0;
             println!("Changed color to index: {}", color_index % 4);
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::bus::Bus;
+
+    #[test]
+    fn test_format_trace() {
+        let mut bus = Bus::new();
+        bus.write(100, 0xa2);
+        bus.write(101, 0x01);
+        bus.write(102, 0xca);
+        bus.write(103, 0x88);
+        bus.write(104, 0x00);
+
+        let mut cpu = Cpu::new(bus);
+        cpu.pc = 0x64;
+        cpu.a = 1;
+        cpu.x = 2;
+        cpu.y = 3;
+        let mut result: Vec<String> = vec![];
+        cpu.run_with_callback(|cpu| {
+            result.push(trace(cpu));
+        });
+        assert_eq!(
+            "0064  A2 01     LDX #$01                        A:01 X:02 Y:03 P:24 SP:FD",
+            result[0]
+        );
+        assert_eq!(
+            "0066  CA        DEX                             A:01 X:01 Y:03 P:24 SP:FD",
+            result[1]
+        );
+        assert_eq!(
+            "0067  88        DEY                             A:01 X:00 Y:03 P:26 SP:FD",
+            result[2]
+        );
+    }
+
+    #[test]
+    fn test_format_mem_access() {
+        let mut bus = Bus::new();
+        // ORA ($33), Y
+        bus.write(100, 0x11);
+        bus.write(101, 0x33);
+
+        //data
+        bus.write(0x33, 00);
+        bus.write(0x34, 04);
+
+        //target cell
+        bus.write(0x400, 0xAA);
+
+        let mut cpu = Cpu::new(bus);
+        cpu.pc = 0x64;
+        cpu.y = 0;
+        let mut result: Vec<String> = vec![];
+        cpu.run_with_callback(|cpu| {
+            result.push(trace(cpu));
+        });
+        assert_eq!(
+            "0064  11 33     ORA ($33),Y = 0400 @ 0400 = AA  A:00 X:00 Y:00 P:24 SP:FD",
+            result[0]
+        );
     }
 }

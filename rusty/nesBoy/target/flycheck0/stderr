@@ -1,0 +1,4 @@
+   0.008882792s  INFO prepare_target{force=false package_id=nesBoy v0.1.0 (/Users/root-kawaii/Desktop/nesBoy/rusty/nesBoy) target="nesBoy"}: cargo::core::compiler::fingerprint: fingerprint dirty for nesBoy v0.1.0 (/Users/root-kawaii/Desktop/nesBoy/rusty/nesBoy)/Check { test: true }/TargetInner { name: "nesBoy", doc: true, ..: with_path("/Users/root-kawaii/Desktop/nesBoy/rusty/nesBoy/src/main.rs", Edition2024) }
+   0.008907708s  INFO prepare_target{force=false package_id=nesBoy v0.1.0 (/Users/root-kawaii/Desktop/nesBoy/rusty/nesBoy) target="nesBoy"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+    Checking nesBoy v0.1.0 (/Users/root-kawaii/Desktop/nesBoy/rusty/nesBoy)
+error: could not compile `nesBoy` (bin "nesBoy" test) due to 4 previous errors; 9 warnings emitted
