@@ -44,9 +44,9 @@ fn main() {
     let mut colorTimer: u32 = 0;
     let mut color_index = 0;
 
-    let mut rom_loader = RomLoader::new("ff.nes").unwrap();
-    println!("Loaded ROM");
-    rom_loader.print_info();
+    // let mut rom_loader = RomLoader::new("ff.nes").unwrap();
+    // println!("Loaded ROM");
+    // rom_loader.print_info();
 
     let mut bus = bus::Bus::new();
     // let mut cpu = cpu::Cpu::new();

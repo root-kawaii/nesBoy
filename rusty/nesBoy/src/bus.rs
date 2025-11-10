@@ -1,20 +1,30 @@
 // use cpu;
 use crate::ppu::Ppu;
+use crate::rom_loader::RomLoader;
 
 pub struct Bus {
     // cpu: *mut Cpu, // The CPU object
     ppu: Ppu,
     prg_rom: [u8; 32768], // PRG-ROM data
     prg_ram: [u8; 2048],  // PRG-RAM (work RAM)
+    rom: RomLoader,
 }
 
 impl Bus {
     pub fn new() -> Self {
+        let rom = RomLoader::new("ff.nes").unwrap();
+        let mut prg_rom = [0u8; 32768];
+
+        // Copy ROM data into prg_rom array
+        let rom_data = rom.prg_rom();
+        let copy_len = rom_data.len().min(32768);
+        prg_rom[..copy_len].copy_from_slice(&rom_data[..copy_len]);
+
         Bus {
-            prg_rom: [0; 32768],
+            prg_rom,
             prg_ram: [0; 2048],
             ppu: Ppu::new(),
-            // cpu: std::ptr::null_mut(),   // CPU will be set later
+            rom,
         }
     }
 
