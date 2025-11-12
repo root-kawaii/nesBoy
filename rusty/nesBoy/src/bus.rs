@@ -52,11 +52,25 @@ impl Bus {
 
     pub fn write(&mut self, addr: u16, data: u8) {
         // Implementation of write method
-        if addr >= 0x0000 && addr <= 0x1FFF {
+        match addr {
+            0x0000..= 0x1FFF => {
             self.prg_ram[(addr % 0x0800) as usize] = data;
-        } else if addr >= 0x2000 && addr <= 0x3FFF {
-            // self.ppu.write(0x2000 + (addr % 8), data); // Mirroring every 8 bytes
-        }
+            }
+            0x2000 => {
+                self.ppu.write_control(data);
+            }
+            0x2006 => {
+                self.ppu.write_to_ppu_addr(data);
+            }
+            0x2007 => {
+                self.ppu.write_data(data);
+            } 
+            _ => {
+                println!("Ignoring mem write-access at {}", addr);
+            }
+        // else if addr >= 0x2000 && addr <= 0x3FFF {
+        //     // self.ppu.write(0x2000 + (addr % 8), data); // Mirroring every 8 bytes
+        // }
         // ROM is read-only in NES
     }
 }
