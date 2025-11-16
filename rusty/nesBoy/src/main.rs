@@ -4,16 +4,22 @@ mod controller_register;
 mod cpu;
 mod ppu;
 mod rom_loader;
+mod status;
+mod frame;
+mod joypad;
 
-use sdl2::TimerSubsystem;
+
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::pixels::PixelFormatEnum;
 
-use bus::Bus;
-use cpu::Cpu;
-use ppu::Ppu;
-use rom_loader::RomLoader;
+use crate::bus::Bus;
+use crate::frame::Frame;
+use crate::ppu::Ppu;
+use crate::rom_loader::RomLoader;
+use std::collections::HashMap;
+use std::thread::sleep;
+use std::time::Duration;
 
 static NES_WIDTH: u64 = 256;
 static NES_HEIGHT: u64 = 240;
@@ -28,151 +34,68 @@ static NES_PALETTE: [u32; 4] = [
     0xFFFF0000, // blue
 ];
 
+
 fn main() {
     let sdl = sdl2::init().unwrap();
     let video = sdl.video().unwrap();
     let window = video.window("NES", 256 * 3, 240 * 3).build().unwrap();
     let mut canvas = window
         .into_canvas()
-        // .index(find_sdl_gl_driver().unwrap())
         .build()
         .unwrap();
     let texture_creator = canvas.texture_creator();
     let mut texture = texture_creator
         .create_texture_streaming(PixelFormatEnum::RGB24, 256, 240)
         .unwrap();
-    let timer = sdl.timer().unwrap();
+    let mut event_pump = sdl.event_pump().unwrap();
 
-    let mut running = true;
-    let mut colorTimer: u32 = 0;
-    let mut color_index = 0;
+    let mut frame = Frame::new();
 
-    // let mut rom_loader = RomLoader::new("ff.nes").unwrap();
-    // println!("Loaded ROM");
-    // rom_loader.print_info();
+    let mut key_map = HashMap::new();
+        key_map.insert(Keycode::Down, joypad::JoypadButton::DOWN);
+        key_map.insert(Keycode::Up, joypad::JoypadButton::UP);
+        key_map.insert(Keycode::Right, joypad::JoypadButton::RIGHT);
+        key_map.insert(Keycode::Left, joypad::JoypadButton::LEFT);
+        key_map.insert(Keycode::Space, joypad::JoypadButton::SELECT);
+        key_map.insert(Keycode::Return, joypad::JoypadButton::START);
+        key_map.insert(Keycode::A, joypad::JoypadButton::BUTTON_A);
+        key_map.insert(Keycode::S, joypad::JoypadButton::BUTTON_B);
 
-    let mut bus = bus::Bus::new();
-    let mut cpu = cpu::Cpu::new(bus);
+    // load the game
+    let rom = RomLoader::new("pac.nes").unwrap();
 
-    while running {
-        let frameStart = TimerSubsystem::ticks(&timer);
+    // the game cycle
+    let bus = Bus::new(rom, move |ppu: &Ppu, joypad: &mut joypad::Joypad|  {
+        Frame::render(ppu, &mut frame);
+        texture.update(None, &frame.data, 256 * 3).unwrap();
 
-        // --- Emulate one frame ---
-        // Commented out for now until CPU/PPU are ready
-        // while (!bus.ppu->isFrameComplete()) {
-        cpu.step();
-        // }
-        // bus.ppu->resetFrameComplete();
-
-        // --- Convert PPU framebuffer indices to actual pixels ---
-
-        texture
-            .with_lock(None, |buffer: &mut [u8], pitch: usize| {
-                let color = NES_PALETTE[color_index % 4];
-                let r = ((color >> 16) & 0xFF) as u8;
-                let g = ((color >> 8) & 0xFF) as u8;
-                let b = (color & 0xFF) as u8;
-
-                // Fill each pixel (4 bytes per pixel)
-                for pixel in buffer.chunks_exact_mut(4) {
-                    pixel[0] = r; // Red
-                    pixel[1] = g; // Green
-                    pixel[2] = b; // Blue
-                    pixel[3] = 255; // Alpha
-                }
-            })
-            .unwrap();
-
-        canvas.clear();
         canvas.copy(&texture, None, None).unwrap();
         canvas.present();
 
-        for event in sdl.event_pump().unwrap().poll_iter() {
+        for event in event_pump.poll_iter() {
             match event {
-                Event::KeyDown {
+                Event::Quit { .. }
+                | Event::KeyDown {
                     keycode: Some(Keycode::Escape),
                     ..
-                } => running = false,
-                _ => {}
+                } => std::process::exit(0),
+                Event::KeyDown { keycode, .. } => {
+                    if let Some(key) = key_map.get(&keycode.unwrap_or(Keycode::Ampersand)) {
+                        joypad.set_button_pressed_status(*key, true);
+                    }
+                }
+                Event::KeyUp { keycode, .. } => {
+                    if let Some(key) = key_map.get(&keycode.unwrap_or(Keycode::Ampersand)) {
+                        joypad.set_button_pressed_status(*key, false);
+                    }
+                }
+                _ => { /* do nothing */ }
             }
         }
+    });
 
-        let frameTime = TimerSubsystem::ticks(&timer) - frameStart;
-        if FRAME_DELAY > frameTime {
-            timer.delay(FRAME_DELAY - frameTime);
-        }
+    let mut cpu = cpu::Cpu::new(bus);
 
-        // // Update color every 2 seconds
-        colorTimer += frameTime;
-        if (colorTimer >= 200) {
-            color_index += 1;
-            colorTimer = 0;
-            println!("Changed color to index: {}", color_index % 4);
-        }
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-    use crate::bus::Bus;
-
-    #[test]
-    fn test_format_trace() {
-        let mut bus = Bus::new();
-        bus.write(100, 0xa2);
-        bus.write(101, 0x01);
-        bus.write(102, 0xca);
-        bus.write(103, 0x88);
-        bus.write(104, 0x00);
-
-        let mut cpu = Cpu::new(bus);
-        cpu.pc = 0x64;
-        cpu.a = 1;
-        cpu.x = 2;
-        cpu.y = 3;
-        let mut result: Vec<String> = vec![];
-        cpu.run_with_callback(|cpu| {
-            result.push(trace(cpu));
-        });
-        assert_eq!(
-            "0064  A2 01     LDX #$01                        A:01 X:02 Y:03 P:24 SP:FD",
-            result[0]
-        );
-        assert_eq!(
-            "0066  CA        DEX                             A:01 X:01 Y:03 P:24 SP:FD",
-            result[1]
-        );
-        assert_eq!(
-            "0067  88        DEY                             A:01 X:00 Y:03 P:26 SP:FD",
-            result[2]
-        );
-    }
-
-    #[test]
-    fn test_format_mem_access() {
-        let mut bus = Bus::new();
-        // ORA ($33), Y
-        bus.write(100, 0x11);
-        bus.write(101, 0x33);
-
-        //data
-        bus.write(0x33, 00);
-        bus.write(0x34, 04);
-
-        //target cell
-        bus.write(0x400, 0xAA);
-
-        let mut cpu = Cpu::new(bus);
-        cpu.pc = 0x64;
-        cpu.y = 0;
-        let mut result: Vec<String> = vec![];
-        cpu.run_with_callback(|cpu| {
-            result.push(trace(cpu));
-        });
-        assert_eq!(
-            "0064  11 33     ORA ($33),Y = 0400 @ 0400 = AA  A:00 X:00 Y:00 P:24 SP:FD",
-            result[0]
-        );
-    }
+    cpu.reset();
+    cpu.run();
 }

@@ -1,5 +1,6 @@
 use crate::add_register::AddrRegister;
 use crate::controller_register::ControlRegister;
+use crate::status::StatusRegister;
 
 
 #[derive(Debug)]
@@ -12,9 +13,7 @@ pub struct Ppu {
     // PPU Registers
     pub control: u8,
     pub mask: u8,
-    pub status: u8,
     pub oam_addr: u8,
-    pub oam_data: u8,
     pub scroll: u8,
     // pub addr: u8,
     pub data: u8,
@@ -23,17 +22,19 @@ pub struct Ppu {
     internal_data_buf: u8,
 
     pub ctrl: ControlRegister,
+    pub status: StatusRegister,
 
     // Internal state
-    chr_rom: Vec<u8>,
+    pub chr_rom: Vec<u8>,
     framebuffer: [u8; 256 * 240],
-    vram: [u8; 0x4000],
+    pub vram: [u8; 0x4000],
     name_table: [u8; 1024],
-    palette_table: [u8; 64],
+    pub palette_table: [u8; 64],
+    pub oam_data: [u8; 256],  // Object Attribute Memory (64 sprites * 4 bytes each)
 
     // Rendering state
     scanline: i32,
-    cycle: i32,
+    cycles: usize,
     frame_complete: bool,
     addr: AddrRegister,
 
@@ -43,6 +44,8 @@ pub struct Ppu {
     tile_attrib: u8,
     tile_lsb: u8,
     tile_msb: u8,
+
+    pub nmi_interrupt: Option<u8>,
 }
 
 impl Ppu {
@@ -50,9 +53,7 @@ impl Ppu {
         Ppu {
             control: 0,
             mask: 0,
-            status: 0,
             oam_addr: 0,
-            oam_data: 0,
             scroll: 0,
             // addr: 0,
             data: 0,
@@ -61,8 +62,9 @@ impl Ppu {
             vram: [0; 0x4000],
             name_table: [0; 1024],
             palette_table: [0; 64],
+            oam_data: [0; 256],
             scanline: 0,
-            cycle: 0,
+            cycles: 0,
             frame_complete: false,
             tile_id: 0,
             tile_attrib: 0,
@@ -76,8 +78,10 @@ impl Ppu {
             },
             chr_rom,
             ctrl: ControlRegister::new(),
+            status: StatusRegister::new(),
             addr: AddrRegister::new(),
             internal_data_buf: 0,
+            nmi_interrupt: None,
         }
     }
 
@@ -129,35 +133,68 @@ impl Ppu {
     //     }
     // }
 
-    // pub fn write(&mut self, addr: u16, data: u8) {
-    //     // Write to PPU memory or registers
-    //     match addr {
-    //         0x2000 => self.write_control(addr, data),
-    //         0x2001 => self.write_mask(addr, data),
-    //         0x2003 => self.oam_addr = data,
-    //         0x2004 => self.write_oam(addr, data),
-    //         0x2005 => self.scroll = data,
-    //         0x2006 => self.addr = data,
-    //         0x2007 => self.data = data,
-    //         _ => {}
+
+    pub fn write_to_data(&mut self, value: u8) {
+        let addr = self.addr.get();
+        match addr {
+            0..=0x1fff => {}, // CHR ROM is read-only, silently ignore
+            0x2000..=0x2fff => {
+                self.vram[self.mirror_vram_addr(addr) as usize] = value;
+            }
+            //Addresses $3F10/$3F14/$3F18/$3F1C are mirrors of $3F00/$3F04/$3F08/$3F0C
+            0x3f10 | 0x3f14 | 0x3f18 | 0x3f1c => {
+                let add_mirror = addr - 0x10;
+                self.palette_table[(add_mirror - 0x3f00) as usize] = value;
+            }
+            0x3f00..=0x3fff =>
+            {
+                self.palette_table[(addr - 0x3f00) as usize] = value;
+            }
+            _ => panic!("unexpected access to mirrored space {}", addr),
+        }
+        self.increment_vram_addr();
+    }
+
+    // pub fn step(&mut self) {
+    //     // Perform one PPU cycle
+    //     self.cycle += 1;
+    //     if self.cycle > 340 {
+    //         self.cycle = 0;
+    //         self.scanline += 1;
+    //         if self.scanline > 261 {
+    //             self.scanline = 0;
+    //             self.frame_complete = true;
+    //         }
     //     }
     // }
 
-    pub fn step(&mut self) {
-        // Perform one PPU cycle
-        self.cycle += 1;
-        if self.cycle > 340 {
-            self.cycle = 0;
+    pub fn tick(&mut self, cycles: u8) -> bool {
+        self.cycles += cycles as usize;
+        if self.cycles >= 341 {
+            self.cycles = self.cycles - 341;
             self.scanline += 1;
-            if self.scanline > 261 {
+
+            if self.scanline == 241 {
+                self.status.set_vblank_status(true);
+                self.status.set_sprite_zero_hit(false);
+                if self.ctrl.generate_vblank_nmi() {
+                    self.nmi_interrupt = Some(1);
+                }
+            }
+
+            if self.scanline >= 262 {
                 self.scanline = 0;
-                self.frame_complete = true;
+                self.nmi_interrupt = None;
+                self.status.set_sprite_zero_hit(false);
+                self.status.reset_vblank_status();
+                return true;
             }
         }
+        return false;
     }
 
     pub fn render_tile(&mut self) {
-        let tileX = (self.cycle - 1) / 8;
+        let tileX = (self.cycles - 1) / 8;
         let tileY = self.scanline / 8;
         let pixelRow = self.scanline % 8;
 
@@ -171,7 +208,7 @@ impl Ppu {
             let x = tileX * 8 + i;
             let y = self.scanline;
 
-            if (x < 256 && y < 240) {
+            if x < 256 && y < 240 {
                 self.framebuffer[y as usize * 256 + x as usize] = colorIndex; // Save to framebuffer
             }
         }
@@ -197,7 +234,7 @@ impl Ppu {
         }
     }
 
-    fn write_to_ppu_addr(&mut self, value: u8) {
+    pub fn write_to_ppu_addr(&mut self, value: u8) {
        self.addr.update(value);
     }
 
@@ -209,36 +246,40 @@ impl Ppu {
         self.frame_complete = false;
     }
 
-    fn read_status(&mut self, _addr: u16) -> u8 {
-        self.status
+    pub fn read_status(&mut self) -> u8 {
+        let status = self.status.snapshot();
+        self.status.reset_vblank_status();
+        self.addr.reset_latch();
+        status
     }
 
-    fn write_control(&mut self, _addr: u16, data: u8) {
-        self.control = data;
+    pub fn write_control(&mut self, data: u8) {
+        let before_nmi_status = self.ctrl.generate_vblank_nmi();
+        self.ctrl.update(data);
+        if !before_nmi_status && self.ctrl.generate_vblank_nmi() && self.status.is_in_vblank() {
+            self.nmi_interrupt = Some(1);
+        }
     }
 
-    fn write_mask(&mut self, _addr: u16, data: u8) {
+    pub fn write_mask(&mut self, data: u8) {
         self.mask = data;
     }
 
-    fn write_oam(&mut self, _addr: u16, data: u8) {
-        self.oam_data = data;
+    pub fn write_oam_addr(&mut self, data: u8) {
+        self.oam_addr = data;
     }
 
-    fn fetch_tile_id(&mut self) {
-        // Fetch tile ID from name table
+    pub fn write_oam_data(&mut self, data: u8) {
+        self.oam_data[self.oam_addr as usize] = data;
+        self.oam_addr = self.oam_addr.wrapping_add(1);
     }
 
-    fn fetch_attribute(&mut self) {
-        // Fetch attribute byte
+    pub fn read_oam_data(&self) -> u8 {
+        self.oam_data[self.oam_addr as usize]
     }
 
-    fn fetch_tile_lsb(&mut self) {
-        // Fetch tile LSB
-    }
-
-    fn fetch_tile_msb(&mut self) {
-        // Fetch tile MSB
+    pub fn write_scroll(&mut self, data: u8) {
+        self.scroll = data;
     }
 }
 

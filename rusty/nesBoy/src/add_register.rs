@@ -43,7 +43,7 @@ impl AddrRegister {
        self.hi_ptr = !self.hi_ptr;
    }
 
-   fn reset_latch(&mut self) {
+   pub fn reset_latch(&mut self) {
          self.hi_ptr = true;
    }
 
