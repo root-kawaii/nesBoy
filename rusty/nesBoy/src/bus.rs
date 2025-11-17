@@ -1,7 +1,7 @@
 // use cpu;
+use crate::joypad::Joypad;
 use crate::ppu::Ppu;
 use crate::rom_loader::RomLoader;
-use crate::joypad::Joypad;
 use std::thread::sleep;
 use std::time::Duration;
 use std::time::SystemTime;
@@ -69,7 +69,7 @@ impl<'call> Bus<'call> {
             return self.cpu_vram[(addr % 0x0800) as usize]; // mirror every 2KB
         } else if addr == 0x4016 {
             // Controller 1 read
-             self.joypad1.read()
+            self.joypad1.read()
         } else if addr == 0x4017 {
             // Controller 2 (not implemented)
             return 0;
@@ -98,7 +98,7 @@ impl<'call> Bus<'call> {
                 self.ppu.write_oam_data(data);
             }
             0x2005 => {
-                self.ppu.write_scroll(data);
+                self.ppu.write_to_scroll(data);
             }
             0x2006 => {
                 self.ppu.write_to_ppu_addr(data);
@@ -133,14 +133,16 @@ impl<'call> Bus<'call> {
             0x4017 => {
                 // APU and controller 2 (not fully implemented)
             }
-             0x2008..=PPU_REGISTERS_MIRRORS_END => {
+            0x2008..=PPU_REGISTERS_MIRRORS_END => {
                 let mirror_down_addr = addr & 0b00100000_00000111;
                 self.write(mirror_down_addr, data);
-
-             }
-             0x8000..=0xFFFF => panic!("Attempt to write to Cartridge ROM space: {:x}", addr),
+            }
+            0x8000..=0xFFFF => {
+                // Mapper writes - ignore for now (TODO: implement mapper support)
+                // println!("Ignoring mapper write at {:04X} = {:02X}", addr, data);
+            }
             _ => {
-                println!("Ignoring mem write-access at {}", addr);
+                // println!("Ignoring mem write-access at {}", addr);
             }
         }
         // else if addr >= 0x2000 && addr <= 0x3FFF {
@@ -150,17 +152,16 @@ impl<'call> Bus<'call> {
     }
 
     pub fn tick(&mut self, cycles: u8) {
+        self.cycles += cycles as usize;
+        let new_frame = self.ppu.tick(cycles * 3);
 
-    self.cycles += cycles as usize;
-    let new_frame = self.ppu.tick(cycles * 3);
-    
-    if new_frame {
-        (self.gameloop_callback)(&self.ppu, &mut self.joypad1);
-        if self.timer < 8{
-            sleep(Duration::from_millis(8 - self.timer as u64));
+        if new_frame {
+            (self.gameloop_callback)(&self.ppu, &mut self.joypad1);
+            if self.timer < 8 {
+                sleep(Duration::from_millis(8 - self.timer as u64));
+            }
+            self.timer = 0;
         }
-        self.timer = 0;
-    }
     }
 
     pub fn poll_nmi_status(&mut self) -> Option<()> {

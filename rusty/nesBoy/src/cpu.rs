@@ -1,9 +1,8 @@
 use crate::bus::Bus;
-use lazy_static::lazy_static;
-use bitflags::bitflags;
 use crate::sleep;
+use bitflags::bitflags;
+use lazy_static::lazy_static;
 use std::time::Duration;
-
 
 bitflags! {
 /// # Status Register (P) http://wiki.nesdev.com/w/index.php/Status_flags
@@ -30,7 +29,6 @@ bitflags! {
     }
 }
 
-
 #[repr(u8)]
 #[derive(Debug, Clone, Copy)]
 pub enum FLAGS6502 {
@@ -54,12 +52,12 @@ const STACK: u16 = 0x0100;
 
 pub struct Cpu<'a> {
     // CPU registers
-    pub a: u8,   // Accumulator
-    pub x: u8,   // X register
-    pub y: u8,   // Y register
-    pub stack_pointer: u8,  // Stack pointer
+    pub a: u8,                // Accumulator
+    pub x: u8,                // X register
+    pub y: u8,                // Y register
+    pub stack_pointer: u8,    // Stack pointer
     pub program_counter: u16, // Program counter
-    pub p: u8,   // Status register
+    pub p: u8,                // Status register
     pub status: CpuFlags,
 
     // 64KB memory (internal RAM)
@@ -95,7 +93,6 @@ impl<'a> Cpu<'a> {
     }
 
     pub fn run(&mut self) {
-
         loop {
             // sleep(Duration::from_nanos(1 as u64));
 
@@ -105,28 +102,28 @@ impl<'a> Cpu<'a> {
 
     pub fn step(&mut self) {
         if let Some(_nmi) = self.bus.poll_nmi_status() {
-               self.interrupt_nmi();
+            self.interrupt_nmi();
         }
         // Fetch opcode and execute
         let opcode = self.bus.read(self.program_counter);
-        self.bus.tick(1); // default to 1 but could be more
         // println!("Executing opcode: {}, {}", opcode, self.program_counter);
-        self.program_counter = self.program_counter.wrapping_add(1); // default to 1 but could be more
+        self.program_counter = self.program_counter.wrapping_add(1); // Move past opcode byte
         // println!("PC: {:04X} Opcode: {:02X}", self.program_counter - 1, opcode);
-        self.execute(opcode);
+        let cycles = self.execute(opcode); // Get actual cycle count from instruction
+        self.bus.tick(cycles); // Tick PPU with correct number of cycles
     }
 
     fn interrupt_nmi(&mut self) {
-       self.stack_push_u16(self.program_counter);
-       let mut flag = self.status.clone();
-       flag.set(CpuFlags::BREAK, false);
-       flag.set(CpuFlags::BREAK2, true);
+        self.stack_push_u16(self.program_counter);
+        let mut flag = self.status.clone();
+        flag.set(CpuFlags::BREAK, false);
+        flag.set(CpuFlags::BREAK2, true);
 
-       self.stack_push(flag.bits());
-       self.status.insert(CpuFlags::INTERRUPT_DISABLE);
+        self.stack_push(flag.bits());
+        self.status.insert(CpuFlags::INTERRUPT_DISABLE);
 
-       self.bus.tick(2);
-       self.program_counter = self.mem_read_u16(0xfffA);
+        self.bus.tick(2);
+        self.program_counter = self.mem_read_u16(0xfffA);
     }
 
     pub fn read(&self, addr: u16) -> u8 {
@@ -189,7 +186,7 @@ impl<'a> Cpu<'a> {
         (self.p & (flag as u8)) != 0
     }
 
-    pub fn execute(&mut self, opcode: u8) {
+    pub fn execute(&mut self, opcode: u8) -> u8 {
         // print!("op cod{} \n", opcode);
         // Execute instruction based on opcode
         match opcode {
@@ -197,13 +194,19 @@ impl<'a> Cpu<'a> {
             0x00 => {
                 self.program_counter = self.program_counter.wrapping_add(1);
                 // Push PC to stack
-                self.bus.write(0x100 + self.stack_pointer as u16, (self.program_counter >> 8) as u8);
+                self.bus.write(
+                    0x100 + self.stack_pointer as u16,
+                    (self.program_counter >> 8) as u8,
+                );
                 self.stack_pointer = self.stack_pointer.wrapping_sub(1);
-                self.bus
-                    .write(0x100 + self.stack_pointer as u16, (self.program_counter & 0xFF) as u8);
+                self.bus.write(
+                    0x100 + self.stack_pointer as u16,
+                    (self.program_counter & 0xFF) as u8,
+                );
                 self.stack_pointer = self.stack_pointer.wrapping_sub(1);
                 // Push status register with B flag set
-                self.bus.write(0x100 + self.stack_pointer as u16, self.p | 0x30);
+                self.bus
+                    .write(0x100 + self.stack_pointer as u16, self.p | 0x30);
                 self.stack_pointer = self.stack_pointer.wrapping_sub(1);
                 // Set interrupt disable flag
                 self.set_flag(FLAGS6502::I, true);
@@ -211,6 +214,7 @@ impl<'a> Cpu<'a> {
                 let lo = self.bus.read(0xFFFE) as u16;
                 let hi = self.bus.read(0xFFFF) as u16;
                 self.program_counter = lo | (hi << 8);
+                7
             }
 
             // LDA - Load Accumulator
@@ -221,6 +225,7 @@ impl<'a> Cpu<'a> {
                 self.a = value;
                 self.set_flag(FLAGS6502::Z, self.a == 0x00);
                 self.set_flag(FLAGS6502::N, (self.a & 0x80) != 0);
+                2
             }
             0xA5 => {
                 // LDA Zero Page
@@ -229,6 +234,7 @@ impl<'a> Cpu<'a> {
                 self.a = self.bus.read(addr as u16);
                 self.set_flag(FLAGS6502::Z, self.a == 0x00);
                 self.set_flag(FLAGS6502::N, (self.a & 0x80) != 0);
+                3
             }
             0xB5 => {
                 // LDA Zero Page,X
@@ -237,6 +243,7 @@ impl<'a> Cpu<'a> {
                 self.a = self.bus.read(addr as u16);
                 self.set_flag(FLAGS6502::Z, self.a == 0x00);
                 self.set_flag(FLAGS6502::N, (self.a & 0x80) != 0);
+                4
             }
             0xAD => {
                 // LDA Absolute
@@ -248,6 +255,7 @@ impl<'a> Cpu<'a> {
                 self.a = self.bus.read(addr);
                 self.set_flag(FLAGS6502::Z, self.a == 0x00);
                 self.set_flag(FLAGS6502::N, (self.a & 0x80) != 0);
+                4
             }
             0xBD => {
                 // LDA Absolute,X
@@ -259,6 +267,7 @@ impl<'a> Cpu<'a> {
                 self.a = self.bus.read(addr);
                 self.set_flag(FLAGS6502::Z, self.a == 0x00);
                 self.set_flag(FLAGS6502::N, (self.a & 0x80) != 0);
+                4
             }
             0xB9 => {
                 // LDA Absolute,Y
@@ -270,6 +279,7 @@ impl<'a> Cpu<'a> {
                 self.a = self.bus.read(addr);
                 self.set_flag(FLAGS6502::Z, self.a == 0x00);
                 self.set_flag(FLAGS6502::N, (self.a & 0x80) != 0);
+                4
             }
             0xA1 => {
                 // LDA (Indirect,X)
@@ -284,6 +294,7 @@ impl<'a> Cpu<'a> {
                 self.a = self.bus.read(addr);
                 self.set_flag(FLAGS6502::Z, self.a == 0x00);
                 self.set_flag(FLAGS6502::N, (self.a & 0x80) != 0);
+                6
             }
             0xB1 => {
                 // LDA (Indirect),Y
@@ -295,6 +306,7 @@ impl<'a> Cpu<'a> {
                 self.a = self.bus.read(addr);
                 self.set_flag(FLAGS6502::Z, self.a == 0x00);
                 self.set_flag(FLAGS6502::N, (self.a & 0x80) != 0);
+                5
             }
 
             // LDX - Load X Register
@@ -304,6 +316,7 @@ impl<'a> Cpu<'a> {
                 self.program_counter = self.program_counter.wrapping_add(1);
                 self.set_flag(FLAGS6502::Z, self.x == 0x00);
                 self.set_flag(FLAGS6502::N, (self.x & 0x80) != 0);
+                2
             }
             0xA6 => {
                 // LDX Zero Page
@@ -312,6 +325,7 @@ impl<'a> Cpu<'a> {
                 self.x = self.bus.read(addr as u16);
                 self.set_flag(FLAGS6502::Z, self.x == 0x00);
                 self.set_flag(FLAGS6502::N, (self.x & 0x80) != 0);
+                3
             }
             0xB6 => {
                 // LDX Zero Page,Y
@@ -320,6 +334,7 @@ impl<'a> Cpu<'a> {
                 self.x = self.bus.read(addr as u16);
                 self.set_flag(FLAGS6502::Z, self.x == 0x00);
                 self.set_flag(FLAGS6502::N, (self.x & 0x80) != 0);
+                4
             }
             0xAE => {
                 // LDX Absolute
@@ -331,6 +346,7 @@ impl<'a> Cpu<'a> {
                 self.x = self.bus.read(addr);
                 self.set_flag(FLAGS6502::Z, self.x == 0x00);
                 self.set_flag(FLAGS6502::N, (self.x & 0x80) != 0);
+                4
             }
             0xBE => {
                 // LDX Absolute,Y
@@ -342,6 +358,7 @@ impl<'a> Cpu<'a> {
                 self.x = self.bus.read(addr);
                 self.set_flag(FLAGS6502::Z, self.x == 0x00);
                 self.set_flag(FLAGS6502::N, (self.x & 0x80) != 0);
+                4
             }
 
             // LDY - Load Y Register
@@ -351,6 +368,7 @@ impl<'a> Cpu<'a> {
                 self.program_counter = self.program_counter.wrapping_add(1);
                 self.set_flag(FLAGS6502::Z, self.y == 0x00);
                 self.set_flag(FLAGS6502::N, (self.y & 0x80) != 0);
+                2
             }
             0xA4 => {
                 // LDY Zero Page
@@ -359,6 +377,7 @@ impl<'a> Cpu<'a> {
                 self.y = self.bus.read(addr as u16);
                 self.set_flag(FLAGS6502::Z, self.y == 0x00);
                 self.set_flag(FLAGS6502::N, (self.y & 0x80) != 0);
+                3
             }
             0xB4 => {
                 // LDY Zero Page,X
@@ -367,6 +386,7 @@ impl<'a> Cpu<'a> {
                 self.y = self.bus.read(addr as u16);
                 self.set_flag(FLAGS6502::Z, self.y == 0x00);
                 self.set_flag(FLAGS6502::N, (self.y & 0x80) != 0);
+                4
             }
             0xAC => {
                 // LDY Absolute
@@ -378,6 +398,7 @@ impl<'a> Cpu<'a> {
                 self.y = self.bus.read(addr);
                 self.set_flag(FLAGS6502::Z, self.y == 0x00);
                 self.set_flag(FLAGS6502::N, (self.y & 0x80) != 0);
+                4
             }
             0xBC => {
                 // LDY Absolute,X
@@ -389,6 +410,7 @@ impl<'a> Cpu<'a> {
                 self.y = self.bus.read(addr);
                 self.set_flag(FLAGS6502::Z, self.y == 0x00);
                 self.set_flag(FLAGS6502::N, (self.y & 0x80) != 0);
+                4
             }
 
             // STA - Store Accumulator
@@ -397,12 +419,14 @@ impl<'a> Cpu<'a> {
                 let addr = self.bus.read(self.program_counter);
                 self.program_counter = self.program_counter.wrapping_add(1);
                 self.bus.write(addr as u16, self.a);
+                3
             }
             0x95 => {
                 // STA Zero Page,X
                 let addr = self.bus.read(self.program_counter).wrapping_add(self.x);
                 self.program_counter = self.program_counter.wrapping_add(1);
                 self.bus.write(addr as u16, self.a);
+                4
             }
             0x8D => {
                 // STA Absolute
@@ -412,6 +436,7 @@ impl<'a> Cpu<'a> {
                 self.program_counter = self.program_counter.wrapping_add(1);
                 let addr = lo | (hi << 8);
                 self.bus.write(addr, self.a);
+                4
             }
             0x9D => {
                 // STA Absolute,X
@@ -421,6 +446,7 @@ impl<'a> Cpu<'a> {
                 self.program_counter = self.program_counter.wrapping_add(1);
                 let addr = (lo | (hi << 8)).wrapping_add(self.x as u16);
                 self.bus.write(addr, self.a);
+                5
             }
             0x99 => {
                 // STA Absolute,Y
@@ -430,6 +456,7 @@ impl<'a> Cpu<'a> {
                 self.program_counter = self.program_counter.wrapping_add(1);
                 let addr = (lo | (hi << 8)).wrapping_add(self.y as u16);
                 self.bus.write(addr, self.a);
+                5
             }
             0x81 => {
                 // STA (Indirect,X)
@@ -442,6 +469,7 @@ impl<'a> Cpu<'a> {
                     as u16;
                 let addr = lo | (hi << 8);
                 self.bus.write(addr, self.a);
+                6
             }
             0x91 => {
                 // STA (Indirect),Y
@@ -451,6 +479,7 @@ impl<'a> Cpu<'a> {
                 let hi = self.bus.read(zp.wrapping_add(1) as u16) as u16;
                 let addr = (lo | (hi << 8)).wrapping_add(self.y as u16);
                 self.bus.write(addr, self.a);
+                6
             }
 
             // STX - Store X Register
@@ -459,12 +488,14 @@ impl<'a> Cpu<'a> {
                 let addr = self.bus.read(self.program_counter);
                 self.program_counter = self.program_counter.wrapping_add(1);
                 self.bus.write(addr as u16, self.x);
+                3
             }
             0x96 => {
                 // STX Zero Page,Y
                 let addr = self.bus.read(self.program_counter).wrapping_add(self.y);
                 self.program_counter = self.program_counter.wrapping_add(1);
                 self.bus.write(addr as u16, self.x);
+                4
             }
             0x8E => {
                 // STX Absolute
@@ -474,6 +505,7 @@ impl<'a> Cpu<'a> {
                 self.program_counter = self.program_counter.wrapping_add(1);
                 let addr = lo | (hi << 8);
                 self.bus.write(addr, self.x);
+                4
             }
 
             // STY - Store Y Register
@@ -482,12 +514,14 @@ impl<'a> Cpu<'a> {
                 let addr = self.bus.read(self.program_counter);
                 self.program_counter = self.program_counter.wrapping_add(1);
                 self.bus.write(addr as u16, self.y);
+                3
             }
             0x94 => {
                 // STY Zero Page,X
                 let addr = self.bus.read(self.program_counter).wrapping_add(self.x);
                 self.program_counter = self.program_counter.wrapping_add(1);
                 self.bus.write(addr as u16, self.y);
+                4
             }
             0x8C => {
                 // STY Absolute
@@ -497,6 +531,7 @@ impl<'a> Cpu<'a> {
                 self.program_counter = self.program_counter.wrapping_add(1);
                 let addr = lo | (hi << 8);
                 self.bus.write(addr, self.y);
+                4
             }
 
             // ADC - Add with Carry
@@ -514,6 +549,7 @@ impl<'a> Cpu<'a> {
                     ((self.a ^ value) & 0x80) == 0 && ((self.a ^ (result as u8)) & 0x80) != 0,
                 );
                 self.a = (result & 0xFF) as u8;
+                2
             }
             0x65 => {
                 // ADC Zero Page
@@ -530,6 +566,7 @@ impl<'a> Cpu<'a> {
                     ((self.a ^ value) & 0x80) == 0 && ((self.a ^ (result as u8)) & 0x80) != 0,
                 );
                 self.a = (result & 0xFF) as u8;
+                3
             }
             0x75 => {
                 // ADC Zero Page,X
@@ -546,6 +583,7 @@ impl<'a> Cpu<'a> {
                     ((self.a ^ value) & 0x80) == 0 && ((self.a ^ (result as u8)) & 0x80) != 0,
                 );
                 self.a = (result & 0xFF) as u8;
+                4
             }
             0x6D => {
                 // ADC Absolute
@@ -565,6 +603,7 @@ impl<'a> Cpu<'a> {
                     ((self.a ^ value) & 0x80) == 0 && ((self.a ^ (result as u8)) & 0x80) != 0,
                 );
                 self.a = (result & 0xFF) as u8;
+                4
             }
             0x7D => {
                 // ADC Absolute,X
@@ -584,6 +623,7 @@ impl<'a> Cpu<'a> {
                     ((self.a ^ value) & 0x80) == 0 && ((self.a ^ (result as u8)) & 0x80) != 0,
                 );
                 self.a = (result & 0xFF) as u8;
+                4
             }
             0x79 => {
                 // ADC Absolute,Y
@@ -603,13 +643,17 @@ impl<'a> Cpu<'a> {
                     ((self.a ^ value) & 0x80) == 0 && ((self.a ^ (result as u8)) & 0x80) != 0,
                 );
                 self.a = (result & 0xFF) as u8;
+                4
             }
             0x61 => {
                 // ADC (Indirect,X)
                 let zp = self.bus.read(self.program_counter);
                 self.program_counter = self.program_counter.wrapping_add(1);
                 let lo = self.bus.read(zp.wrapping_add(self.x) as u16) as u16;
-                let hi = self.bus.read(zp.wrapping_add(self.x).wrapping_add(1) as u16) as u16;
+                let hi = self
+                    .bus
+                    .read(zp.wrapping_add(self.x).wrapping_add(1) as u16)
+                    as u16;
                 let addr = lo | (hi << 8);
                 let value = self.bus.read(addr);
                 let carry = if self.get_flag(FLAGS6502::C) { 1 } else { 0 };
@@ -622,6 +666,7 @@ impl<'a> Cpu<'a> {
                     ((self.a ^ value) & 0x80) == 0 && ((self.a ^ (result as u8)) & 0x80) != 0,
                 );
                 self.a = (result & 0xFF) as u8;
+                6
             }
             0x71 => {
                 // ADC (Indirect),Y
@@ -641,6 +686,7 @@ impl<'a> Cpu<'a> {
                     ((self.a ^ value) & 0x80) == 0 && ((self.a ^ (result as u8)) & 0x80) != 0,
                 );
                 self.a = (result & 0xFF) as u8;
+                5
             }
 
             // SBC - Subtract with Carry
@@ -649,7 +695,9 @@ impl<'a> Cpu<'a> {
                 let value = self.bus.read(self.program_counter);
                 self.program_counter = self.program_counter.wrapping_add(1);
                 let carry = if self.get_flag(FLAGS6502::C) { 0 } else { 1 };
-                let result = (self.a as u16).wrapping_sub(value as u16).wrapping_sub(carry);
+                let result = (self.a as u16)
+                    .wrapping_sub(value as u16)
+                    .wrapping_sub(carry);
                 self.set_flag(FLAGS6502::C, result < 0x100);
                 self.set_flag(FLAGS6502::Z, (result & 0xFF) == 0);
                 self.set_flag(FLAGS6502::N, (result & 0x80) != 0);
@@ -658,6 +706,7 @@ impl<'a> Cpu<'a> {
                     ((self.a ^ value) & 0x80) != 0 && ((self.a ^ (result as u8)) & 0x80) != 0,
                 );
                 self.a = (result & 0xFF) as u8;
+                2
             }
             0xE5 => {
                 // SBC Zero Page
@@ -665,7 +714,9 @@ impl<'a> Cpu<'a> {
                 self.program_counter = self.program_counter.wrapping_add(1);
                 let value = self.bus.read(addr as u16);
                 let carry = if self.get_flag(FLAGS6502::C) { 0 } else { 1 };
-                let result = (self.a as u16).wrapping_sub(value as u16).wrapping_sub(carry);
+                let result = (self.a as u16)
+                    .wrapping_sub(value as u16)
+                    .wrapping_sub(carry);
                 self.set_flag(FLAGS6502::C, result < 0x100);
                 self.set_flag(FLAGS6502::Z, (result & 0xFF) == 0);
                 self.set_flag(FLAGS6502::N, (result & 0x80) != 0);
@@ -674,6 +725,7 @@ impl<'a> Cpu<'a> {
                     ((self.a ^ value) & 0x80) != 0 && ((self.a ^ (result as u8)) & 0x80) != 0,
                 );
                 self.a = (result & 0xFF) as u8;
+                3
             }
             0xF5 => {
                 // SBC Zero Page,X
@@ -681,7 +733,9 @@ impl<'a> Cpu<'a> {
                 self.program_counter = self.program_counter.wrapping_add(1);
                 let value = self.bus.read(addr as u16);
                 let carry = if self.get_flag(FLAGS6502::C) { 0 } else { 1 };
-                let result = (self.a as u16).wrapping_sub(value as u16).wrapping_sub(carry);
+                let result = (self.a as u16)
+                    .wrapping_sub(value as u16)
+                    .wrapping_sub(carry);
                 self.set_flag(FLAGS6502::C, result < 0x100);
                 self.set_flag(FLAGS6502::Z, (result & 0xFF) == 0);
                 self.set_flag(FLAGS6502::N, (result & 0x80) != 0);
@@ -690,6 +744,7 @@ impl<'a> Cpu<'a> {
                     ((self.a ^ value) & 0x80) != 0 && ((self.a ^ (result as u8)) & 0x80) != 0,
                 );
                 self.a = (result & 0xFF) as u8;
+                4
             }
             0xED => {
                 // SBC Absolute
@@ -700,7 +755,9 @@ impl<'a> Cpu<'a> {
                 let addr = lo | (hi << 8);
                 let value = self.bus.read(addr);
                 let carry = if self.get_flag(FLAGS6502::C) { 0 } else { 1 };
-                let result = (self.a as u16).wrapping_sub(value as u16).wrapping_sub(carry);
+                let result = (self.a as u16)
+                    .wrapping_sub(value as u16)
+                    .wrapping_sub(carry);
                 self.set_flag(FLAGS6502::C, result < 0x100);
                 self.set_flag(FLAGS6502::Z, (result & 0xFF) == 0);
                 self.set_flag(FLAGS6502::N, (result & 0x80) != 0);
@@ -709,6 +766,7 @@ impl<'a> Cpu<'a> {
                     ((self.a ^ value) & 0x80) != 0 && ((self.a ^ (result as u8)) & 0x80) != 0,
                 );
                 self.a = (result & 0xFF) as u8;
+                4
             }
             0xFD => {
                 // SBC Absolute,X
@@ -719,7 +777,9 @@ impl<'a> Cpu<'a> {
                 let addr = (lo | (hi << 8)).wrapping_add(self.x as u16);
                 let value = self.bus.read(addr);
                 let carry = if self.get_flag(FLAGS6502::C) { 0 } else { 1 };
-                let result = (self.a as u16).wrapping_sub(value as u16).wrapping_sub(carry);
+                let result = (self.a as u16)
+                    .wrapping_sub(value as u16)
+                    .wrapping_sub(carry);
                 self.set_flag(FLAGS6502::C, result < 0x100);
                 self.set_flag(FLAGS6502::Z, (result & 0xFF) == 0);
                 self.set_flag(FLAGS6502::N, (result & 0x80) != 0);
@@ -728,6 +788,7 @@ impl<'a> Cpu<'a> {
                     ((self.a ^ value) & 0x80) != 0 && ((self.a ^ (result as u8)) & 0x80) != 0,
                 );
                 self.a = (result & 0xFF) as u8;
+                4
             }
             0xF9 => {
                 // SBC Absolute,Y
@@ -738,7 +799,9 @@ impl<'a> Cpu<'a> {
                 let addr = (lo | (hi << 8)).wrapping_add(self.y as u16);
                 let value = self.bus.read(addr);
                 let carry = if self.get_flag(FLAGS6502::C) { 0 } else { 1 };
-                let result = (self.a as u16).wrapping_sub(value as u16).wrapping_sub(carry);
+                let result = (self.a as u16)
+                    .wrapping_sub(value as u16)
+                    .wrapping_sub(carry);
                 self.set_flag(FLAGS6502::C, result < 0x100);
                 self.set_flag(FLAGS6502::Z, (result & 0xFF) == 0);
                 self.set_flag(FLAGS6502::N, (result & 0x80) != 0);
@@ -747,17 +810,23 @@ impl<'a> Cpu<'a> {
                     ((self.a ^ value) & 0x80) != 0 && ((self.a ^ (result as u8)) & 0x80) != 0,
                 );
                 self.a = (result & 0xFF) as u8;
+                4
             }
             0xE1 => {
                 // SBC (Indirect,X)
                 let zp = self.bus.read(self.program_counter);
                 self.program_counter = self.program_counter.wrapping_add(1);
                 let lo = self.bus.read(zp.wrapping_add(self.x) as u16) as u16;
-                let hi = self.bus.read(zp.wrapping_add(self.x).wrapping_add(1) as u16) as u16;
+                let hi = self
+                    .bus
+                    .read(zp.wrapping_add(self.x).wrapping_add(1) as u16)
+                    as u16;
                 let addr = lo | (hi << 8);
                 let value = self.bus.read(addr);
                 let carry = if self.get_flag(FLAGS6502::C) { 0 } else { 1 };
-                let result = (self.a as u16).wrapping_sub(value as u16).wrapping_sub(carry);
+                let result = (self.a as u16)
+                    .wrapping_sub(value as u16)
+                    .wrapping_sub(carry);
                 self.set_flag(FLAGS6502::C, result < 0x100);
                 self.set_flag(FLAGS6502::Z, (result & 0xFF) == 0);
                 self.set_flag(FLAGS6502::N, (result & 0x80) != 0);
@@ -766,6 +835,7 @@ impl<'a> Cpu<'a> {
                     ((self.a ^ value) & 0x80) != 0 && ((self.a ^ (result as u8)) & 0x80) != 0,
                 );
                 self.a = (result & 0xFF) as u8;
+                6
             }
             0xF1 => {
                 // SBC (Indirect),Y
@@ -776,7 +846,9 @@ impl<'a> Cpu<'a> {
                 let addr = (lo | (hi << 8)).wrapping_add(self.y as u16);
                 let value = self.bus.read(addr);
                 let carry = if self.get_flag(FLAGS6502::C) { 0 } else { 1 };
-                let result = (self.a as u16).wrapping_sub(value as u16).wrapping_sub(carry);
+                let result = (self.a as u16)
+                    .wrapping_sub(value as u16)
+                    .wrapping_sub(carry);
                 self.set_flag(FLAGS6502::C, result < 0x100);
                 self.set_flag(FLAGS6502::Z, (result & 0xFF) == 0);
                 self.set_flag(FLAGS6502::N, (result & 0x80) != 0);
@@ -785,6 +857,7 @@ impl<'a> Cpu<'a> {
                     ((self.a ^ value) & 0x80) != 0 && ((self.a ^ (result as u8)) & 0x80) != 0,
                 );
                 self.a = (result & 0xFF) as u8;
+                5
             }
 
             // AND - Logical AND
@@ -795,6 +868,7 @@ impl<'a> Cpu<'a> {
                 self.a &= value;
                 self.set_flag(FLAGS6502::Z, self.a == 0x00);
                 self.set_flag(FLAGS6502::N, (self.a & 0x80) != 0);
+                2
             }
             0x25 => {
                 // AND Zero Page
@@ -803,6 +877,7 @@ impl<'a> Cpu<'a> {
                 self.a &= self.bus.read(addr as u16);
                 self.set_flag(FLAGS6502::Z, self.a == 0x00);
                 self.set_flag(FLAGS6502::N, (self.a & 0x80) != 0);
+                3
             }
             0x35 => {
                 // AND Zero Page,X
@@ -811,6 +886,7 @@ impl<'a> Cpu<'a> {
                 self.a &= self.bus.read(addr as u16);
                 self.set_flag(FLAGS6502::Z, self.a == 0x00);
                 self.set_flag(FLAGS6502::N, (self.a & 0x80) != 0);
+                4
             }
             0x2D => {
                 // AND Absolute
@@ -822,6 +898,7 @@ impl<'a> Cpu<'a> {
                 self.a &= self.bus.read(addr);
                 self.set_flag(FLAGS6502::Z, self.a == 0x00);
                 self.set_flag(FLAGS6502::N, (self.a & 0x80) != 0);
+                4
             }
             0x3D => {
                 // AND Absolute,X
@@ -833,6 +910,7 @@ impl<'a> Cpu<'a> {
                 self.a &= self.bus.read(addr);
                 self.set_flag(FLAGS6502::Z, self.a == 0x00);
                 self.set_flag(FLAGS6502::N, (self.a & 0x80) != 0);
+                4
             }
             0x39 => {
                 // AND Absolute,Y
@@ -844,6 +922,7 @@ impl<'a> Cpu<'a> {
                 self.a &= self.bus.read(addr);
                 self.set_flag(FLAGS6502::Z, self.a == 0x00);
                 self.set_flag(FLAGS6502::N, (self.a & 0x80) != 0);
+                4
             }
             0x21 => {
                 // AND (Indirect,X)
@@ -858,6 +937,7 @@ impl<'a> Cpu<'a> {
                 self.a &= self.bus.read(addr);
                 self.set_flag(FLAGS6502::Z, self.a == 0x00);
                 self.set_flag(FLAGS6502::N, (self.a & 0x80) != 0);
+                6
             }
             0x31 => {
                 // AND (Indirect),Y
@@ -869,6 +949,7 @@ impl<'a> Cpu<'a> {
                 self.a &= self.bus.read(addr);
                 self.set_flag(FLAGS6502::Z, self.a == 0x00);
                 self.set_flag(FLAGS6502::N, (self.a & 0x80) != 0);
+                5
             }
 
             // ORA - Logical OR
@@ -879,6 +960,7 @@ impl<'a> Cpu<'a> {
                 self.a |= value;
                 self.set_flag(FLAGS6502::Z, self.a == 0x00);
                 self.set_flag(FLAGS6502::N, (self.a & 0x80) != 0);
+                2
             }
             0x05 => {
                 // ORA Zero Page
@@ -887,6 +969,7 @@ impl<'a> Cpu<'a> {
                 self.a |= self.bus.read(addr as u16);
                 self.set_flag(FLAGS6502::Z, self.a == 0x00);
                 self.set_flag(FLAGS6502::N, (self.a & 0x80) != 0);
+                3
             }
             0x15 => {
                 // ORA Zero Page,X
@@ -895,6 +978,7 @@ impl<'a> Cpu<'a> {
                 self.a |= self.bus.read(addr as u16);
                 self.set_flag(FLAGS6502::Z, self.a == 0x00);
                 self.set_flag(FLAGS6502::N, (self.a & 0x80) != 0);
+                4
             }
             0x0D => {
                 // ORA Absolute
@@ -906,6 +990,7 @@ impl<'a> Cpu<'a> {
                 self.a |= self.bus.read(addr);
                 self.set_flag(FLAGS6502::Z, self.a == 0x00);
                 self.set_flag(FLAGS6502::N, (self.a & 0x80) != 0);
+                4
             }
             0x1D => {
                 // ORA Absolute,X
@@ -917,6 +1002,7 @@ impl<'a> Cpu<'a> {
                 self.a |= self.bus.read(addr);
                 self.set_flag(FLAGS6502::Z, self.a == 0x00);
                 self.set_flag(FLAGS6502::N, (self.a & 0x80) != 0);
+                4
             }
             0x19 => {
                 // ORA Absolute,Y
@@ -928,17 +1014,22 @@ impl<'a> Cpu<'a> {
                 self.a |= self.bus.read(addr);
                 self.set_flag(FLAGS6502::Z, self.a == 0x00);
                 self.set_flag(FLAGS6502::N, (self.a & 0x80) != 0);
+                4
             }
             0x01 => {
                 // ORA (Indirect,X)
                 let zp = self.bus.read(self.program_counter);
                 self.program_counter = self.program_counter.wrapping_add(1);
                 let lo = self.bus.read(zp.wrapping_add(self.x) as u16) as u16;
-                let hi = self.bus.read(zp.wrapping_add(self.x).wrapping_add(1) as u16) as u16;
+                let hi = self
+                    .bus
+                    .read(zp.wrapping_add(self.x).wrapping_add(1) as u16)
+                    as u16;
                 let addr = lo | (hi << 8);
                 self.a |= self.bus.read(addr);
                 self.set_flag(FLAGS6502::Z, self.a == 0x00);
                 self.set_flag(FLAGS6502::N, (self.a & 0x80) != 0);
+                6
             }
             0x11 => {
                 // ORA (Indirect),Y
@@ -950,6 +1041,7 @@ impl<'a> Cpu<'a> {
                 self.a |= self.bus.read(addr);
                 self.set_flag(FLAGS6502::Z, self.a == 0x00);
                 self.set_flag(FLAGS6502::N, (self.a & 0x80) != 0);
+                5
             }
 
             // EOR - Logical XOR
@@ -960,6 +1052,7 @@ impl<'a> Cpu<'a> {
                 self.a ^= value;
                 self.set_flag(FLAGS6502::Z, self.a == 0x00);
                 self.set_flag(FLAGS6502::N, (self.a & 0x80) != 0);
+                2
             }
             0x45 => {
                 // EOR Zero Page
@@ -968,6 +1061,7 @@ impl<'a> Cpu<'a> {
                 self.a ^= self.bus.read(addr as u16);
                 self.set_flag(FLAGS6502::Z, self.a == 0x00);
                 self.set_flag(FLAGS6502::N, (self.a & 0x80) != 0);
+                3
             }
             0x55 => {
                 // EOR Zero Page,X
@@ -976,6 +1070,7 @@ impl<'a> Cpu<'a> {
                 self.a ^= self.bus.read(addr as u16);
                 self.set_flag(FLAGS6502::Z, self.a == 0x00);
                 self.set_flag(FLAGS6502::N, (self.a & 0x80) != 0);
+                4
             }
             0x4D => {
                 // EOR Absolute
@@ -987,6 +1082,7 @@ impl<'a> Cpu<'a> {
                 self.a ^= self.bus.read(addr);
                 self.set_flag(FLAGS6502::Z, self.a == 0x00);
                 self.set_flag(FLAGS6502::N, (self.a & 0x80) != 0);
+                4
             }
             0x5D => {
                 // EOR Absolute,X
@@ -998,6 +1094,7 @@ impl<'a> Cpu<'a> {
                 self.a ^= self.bus.read(addr);
                 self.set_flag(FLAGS6502::Z, self.a == 0x00);
                 self.set_flag(FLAGS6502::N, (self.a & 0x80) != 0);
+                4
             }
             0x59 => {
                 // EOR Absolute,Y
@@ -1009,17 +1106,22 @@ impl<'a> Cpu<'a> {
                 self.a ^= self.bus.read(addr);
                 self.set_flag(FLAGS6502::Z, self.a == 0x00);
                 self.set_flag(FLAGS6502::N, (self.a & 0x80) != 0);
+                4
             }
             0x41 => {
                 // EOR (Indirect,X)
                 let zp = self.bus.read(self.program_counter);
                 self.program_counter = self.program_counter.wrapping_add(1);
                 let lo = self.bus.read(zp.wrapping_add(self.x) as u16) as u16;
-                let hi = self.bus.read(zp.wrapping_add(self.x).wrapping_add(1) as u16) as u16;
+                let hi = self
+                    .bus
+                    .read(zp.wrapping_add(self.x).wrapping_add(1) as u16)
+                    as u16;
                 let addr = lo | (hi << 8);
                 self.a ^= self.bus.read(addr);
                 self.set_flag(FLAGS6502::Z, self.a == 0x00);
                 self.set_flag(FLAGS6502::N, (self.a & 0x80) != 0);
+                6
             }
             0x51 => {
                 // EOR (Indirect),Y
@@ -1031,6 +1133,7 @@ impl<'a> Cpu<'a> {
                 self.a ^= self.bus.read(addr);
                 self.set_flag(FLAGS6502::Z, self.a == 0x00);
                 self.set_flag(FLAGS6502::N, (self.a & 0x80) != 0);
+                5
             }
 
             // CMP - Compare Accumulator
@@ -1042,6 +1145,7 @@ impl<'a> Cpu<'a> {
                 self.set_flag(FLAGS6502::C, self.a >= value);
                 self.set_flag(FLAGS6502::Z, self.a == value);
                 self.set_flag(FLAGS6502::N, (result & 0x80) != 0);
+                2
             }
             0xC5 => {
                 // CMP Zero Page
@@ -1052,6 +1156,7 @@ impl<'a> Cpu<'a> {
                 self.set_flag(FLAGS6502::C, self.a >= value);
                 self.set_flag(FLAGS6502::Z, self.a == value);
                 self.set_flag(FLAGS6502::N, (result & 0x80) != 0);
+                3
             }
             0xD5 => {
                 // CMP Zero Page,X
@@ -1062,6 +1167,7 @@ impl<'a> Cpu<'a> {
                 self.set_flag(FLAGS6502::C, self.a >= value);
                 self.set_flag(FLAGS6502::Z, self.a == value);
                 self.set_flag(FLAGS6502::N, (result & 0x80) != 0);
+                4
             }
             0xCD => {
                 // CMP Absolute
@@ -1075,6 +1181,7 @@ impl<'a> Cpu<'a> {
                 self.set_flag(FLAGS6502::C, self.a >= value);
                 self.set_flag(FLAGS6502::Z, self.a == value);
                 self.set_flag(FLAGS6502::N, (result & 0x80) != 0);
+                4
             }
             0xDD => {
                 // CMP Absolute,X
@@ -1088,6 +1195,7 @@ impl<'a> Cpu<'a> {
                 self.set_flag(FLAGS6502::C, self.a >= value);
                 self.set_flag(FLAGS6502::Z, self.a == value);
                 self.set_flag(FLAGS6502::N, (result & 0x80) != 0);
+                4
             }
             0xD9 => {
                 // CMP Absolute,Y
@@ -1101,6 +1209,7 @@ impl<'a> Cpu<'a> {
                 self.set_flag(FLAGS6502::C, self.a >= value);
                 self.set_flag(FLAGS6502::Z, self.a == value);
                 self.set_flag(FLAGS6502::N, (result & 0x80) != 0);
+                4
             }
             0xC1 => {
                 // CMP (Indirect,X)
@@ -1117,6 +1226,7 @@ impl<'a> Cpu<'a> {
                 self.set_flag(FLAGS6502::C, self.a >= value);
                 self.set_flag(FLAGS6502::Z, self.a == value);
                 self.set_flag(FLAGS6502::N, (result & 0x80) != 0);
+                6
             }
             0xD1 => {
                 // CMP (Indirect),Y
@@ -1130,6 +1240,7 @@ impl<'a> Cpu<'a> {
                 self.set_flag(FLAGS6502::C, self.a >= value);
                 self.set_flag(FLAGS6502::Z, self.a == value);
                 self.set_flag(FLAGS6502::N, (result & 0x80) != 0);
+                5
             }
 
             // CPX - Compare X Register
@@ -1141,6 +1252,7 @@ impl<'a> Cpu<'a> {
                 self.set_flag(FLAGS6502::C, self.x >= value);
                 self.set_flag(FLAGS6502::Z, self.x == value);
                 self.set_flag(FLAGS6502::N, (result & 0x80) != 0);
+                2
             }
             0xE4 => {
                 // CPX Zero Page
@@ -1151,6 +1263,7 @@ impl<'a> Cpu<'a> {
                 self.set_flag(FLAGS6502::C, self.x >= value);
                 self.set_flag(FLAGS6502::Z, self.x == value);
                 self.set_flag(FLAGS6502::N, (result & 0x80) != 0);
+                3
             }
             0xEC => {
                 // CPX Absolute
@@ -1164,6 +1277,7 @@ impl<'a> Cpu<'a> {
                 self.set_flag(FLAGS6502::C, self.x >= value);
                 self.set_flag(FLAGS6502::Z, self.x == value);
                 self.set_flag(FLAGS6502::N, (result & 0x80) != 0);
+                4
             }
 
             // BIT - Bit Test
@@ -1176,6 +1290,7 @@ impl<'a> Cpu<'a> {
                 self.set_flag(FLAGS6502::Z, result == 0x00);
                 self.set_flag(FLAGS6502::V, (value & 0x40) != 0);
                 self.set_flag(FLAGS6502::N, (value & 0x80) != 0);
+                3
             }
             0x2C => {
                 // BIT Absolute
@@ -1189,6 +1304,7 @@ impl<'a> Cpu<'a> {
                 self.set_flag(FLAGS6502::Z, result == 0x00);
                 self.set_flag(FLAGS6502::V, (value & 0x40) != 0);
                 self.set_flag(FLAGS6502::N, (value & 0x80) != 0);
+                4
             }
 
             // CPY - Compare Y Register
@@ -1200,6 +1316,7 @@ impl<'a> Cpu<'a> {
                 self.set_flag(FLAGS6502::C, self.y >= value);
                 self.set_flag(FLAGS6502::Z, self.y == value);
                 self.set_flag(FLAGS6502::N, (result & 0x80) != 0);
+                2
             }
             0xC4 => {
                 // CPY Zero Page
@@ -1210,6 +1327,7 @@ impl<'a> Cpu<'a> {
                 self.set_flag(FLAGS6502::C, self.y >= value);
                 self.set_flag(FLAGS6502::Z, self.y == value);
                 self.set_flag(FLAGS6502::N, (result & 0x80) != 0);
+                3
             }
             0xCC => {
                 // CPY Absolute
@@ -1223,6 +1341,7 @@ impl<'a> Cpu<'a> {
                 self.set_flag(FLAGS6502::C, self.y >= value);
                 self.set_flag(FLAGS6502::Z, self.y == value);
                 self.set_flag(FLAGS6502::N, (result & 0x80) != 0);
+                4
             }
 
             // JMP - Jump
@@ -1231,6 +1350,7 @@ impl<'a> Cpu<'a> {
                 let lo = self.bus.read(self.program_counter) as u16;
                 let hi = self.bus.read(self.program_counter.wrapping_add(1)) as u16;
                 self.program_counter = lo | (hi << 8);
+                3
             }
             0x6C => {
                 // JMP Indirect (with 6502 bug)
@@ -1250,6 +1370,7 @@ impl<'a> Cpu<'a> {
                     let hi = self.bus.read(addr.wrapping_add(1)) as u16;
                     self.program_counter = lo | (hi << 8);
                 }
+                5
             }
 
             // JSR - Jump to Subroutine
@@ -1267,6 +1388,7 @@ impl<'a> Cpu<'a> {
                     .write(0x100 + self.stack_pointer as u16, (ret_addr & 0xFF) as u8);
                 self.stack_pointer = self.stack_pointer.wrapping_sub(1);
                 self.program_counter = addr;
+                6
             }
 
             // RTS - Return from Subroutine
@@ -1276,6 +1398,7 @@ impl<'a> Cpu<'a> {
                 self.stack_pointer = self.stack_pointer.wrapping_add(1);
                 let hi = self.bus.read(0x100 + self.stack_pointer as u16) as u16;
                 self.program_counter = (lo | (hi << 8)).wrapping_add(1);
+                6
             }
 
             // RTI - Return from Interrupt
@@ -1287,6 +1410,7 @@ impl<'a> Cpu<'a> {
                 self.stack_pointer = self.stack_pointer.wrapping_add(1);
                 let hi = self.bus.read(0x100 + self.stack_pointer as u16) as u16;
                 self.program_counter = lo | (hi << 8);
+                6
             }
 
             // Branch Instructions
@@ -1296,6 +1420,9 @@ impl<'a> Cpu<'a> {
                 self.program_counter = self.program_counter.wrapping_add(1);
                 if self.get_flag(FLAGS6502::Z) {
                     self.program_counter = self.program_counter.wrapping_add(offset as u16);
+                    3
+                } else {
+                    2
                 }
             }
             0xD0 => {
@@ -1304,6 +1431,9 @@ impl<'a> Cpu<'a> {
                 self.program_counter = self.program_counter.wrapping_add(1);
                 if !self.get_flag(FLAGS6502::Z) {
                     self.program_counter = self.program_counter.wrapping_add(offset as u16);
+                    3
+                } else {
+                    2
                 }
             }
             0xB0 => {
@@ -1312,6 +1442,9 @@ impl<'a> Cpu<'a> {
                 self.program_counter = self.program_counter.wrapping_add(1);
                 if self.get_flag(FLAGS6502::C) {
                     self.program_counter = self.program_counter.wrapping_add(offset as u16);
+                    3
+                } else {
+                    2
                 }
             }
             0x90 => {
@@ -1320,6 +1453,9 @@ impl<'a> Cpu<'a> {
                 self.program_counter = self.program_counter.wrapping_add(1);
                 if !self.get_flag(FLAGS6502::C) {
                     self.program_counter = self.program_counter.wrapping_add(offset as u16);
+                    3
+                } else {
+                    2
                 }
             }
             0x30 => {
@@ -1328,6 +1464,9 @@ impl<'a> Cpu<'a> {
                 self.program_counter = self.program_counter.wrapping_add(1);
                 if self.get_flag(FLAGS6502::N) {
                     self.program_counter = self.program_counter.wrapping_add(offset as u16);
+                    3
+                } else {
+                    2
                 }
             }
             0x10 => {
@@ -1336,6 +1475,9 @@ impl<'a> Cpu<'a> {
                 self.program_counter = self.program_counter.wrapping_add(1);
                 if !self.get_flag(FLAGS6502::N) {
                     self.program_counter = self.program_counter.wrapping_add(offset as u16);
+                    3
+                } else {
+                    2
                 }
             }
             0x70 => {
@@ -1344,6 +1486,9 @@ impl<'a> Cpu<'a> {
                 self.program_counter = self.program_counter.wrapping_add(1);
                 if self.get_flag(FLAGS6502::V) {
                     self.program_counter = self.program_counter.wrapping_add(offset as u16);
+                    3
+                } else {
+                    2
                 }
             }
             0x50 => {
@@ -1352,6 +1497,9 @@ impl<'a> Cpu<'a> {
                 self.program_counter = self.program_counter.wrapping_add(1);
                 if !self.get_flag(FLAGS6502::V) {
                     self.program_counter = self.program_counter.wrapping_add(offset as u16);
+                    3
+                } else {
+                    2
                 }
             }
 
@@ -1364,6 +1512,7 @@ impl<'a> Cpu<'a> {
                 self.bus.write(addr as u16, value);
                 self.set_flag(FLAGS6502::Z, value == 0x00);
                 self.set_flag(FLAGS6502::N, (value & 0x80) != 0);
+                5
             }
             0xF6 => {
                 // INC Zero Page,X
@@ -1373,6 +1522,7 @@ impl<'a> Cpu<'a> {
                 self.bus.write(addr as u16, value);
                 self.set_flag(FLAGS6502::Z, value == 0x00);
                 self.set_flag(FLAGS6502::N, (value & 0x80) != 0);
+                6
             }
             0xEE => {
                 // INC Absolute
@@ -1385,6 +1535,7 @@ impl<'a> Cpu<'a> {
                 self.bus.write(addr, value);
                 self.set_flag(FLAGS6502::Z, value == 0x00);
                 self.set_flag(FLAGS6502::N, (value & 0x80) != 0);
+                6
             }
             0xFE => {
                 // INC Absolute,X
@@ -1397,6 +1548,7 @@ impl<'a> Cpu<'a> {
                 self.bus.write(addr, value);
                 self.set_flag(FLAGS6502::Z, value == 0x00);
                 self.set_flag(FLAGS6502::N, (value & 0x80) != 0);
+                7
             }
 
             // INX/INY - Increment X/Y
@@ -1405,12 +1557,14 @@ impl<'a> Cpu<'a> {
                 self.x = self.x.wrapping_add(1);
                 self.set_flag(FLAGS6502::Z, self.x == 0x00);
                 self.set_flag(FLAGS6502::N, (self.x & 0x80) != 0);
+                2
             }
             0xC8 => {
                 // INY
                 self.y = self.y.wrapping_add(1);
                 self.set_flag(FLAGS6502::Z, self.y == 0x00);
                 self.set_flag(FLAGS6502::N, (self.y & 0x80) != 0);
+                2
             }
 
             // DEC - Decrement Memory
@@ -1422,6 +1576,7 @@ impl<'a> Cpu<'a> {
                 self.bus.write(addr as u16, value);
                 self.set_flag(FLAGS6502::Z, value == 0x00);
                 self.set_flag(FLAGS6502::N, (value & 0x80) != 0);
+                5
             }
             0xD6 => {
                 // DEC Zero Page,X
@@ -1431,6 +1586,7 @@ impl<'a> Cpu<'a> {
                 self.bus.write(addr as u16, value);
                 self.set_flag(FLAGS6502::Z, value == 0x00);
                 self.set_flag(FLAGS6502::N, (value & 0x80) != 0);
+                6
             }
             0xCE => {
                 // DEC Absolute
@@ -1443,6 +1599,7 @@ impl<'a> Cpu<'a> {
                 self.bus.write(addr, value);
                 self.set_flag(FLAGS6502::Z, value == 0x00);
                 self.set_flag(FLAGS6502::N, (value & 0x80) != 0);
+                6
             }
             0xDE => {
                 // DEC Absolute,X
@@ -1455,6 +1612,7 @@ impl<'a> Cpu<'a> {
                 self.bus.write(addr, value);
                 self.set_flag(FLAGS6502::Z, value == 0x00);
                 self.set_flag(FLAGS6502::N, (value & 0x80) != 0);
+                7
             }
 
             // DEX/DEY - Decrement X/Y
@@ -1463,12 +1621,14 @@ impl<'a> Cpu<'a> {
                 self.x = self.x.wrapping_sub(1);
                 self.set_flag(FLAGS6502::Z, self.x == 0x00);
                 self.set_flag(FLAGS6502::N, (self.x & 0x80) != 0);
+                2
             }
             0x88 => {
                 // DEY
                 self.y = self.y.wrapping_sub(1);
                 self.set_flag(FLAGS6502::Z, self.y == 0x00);
                 self.set_flag(FLAGS6502::N, (self.y & 0x80) != 0);
+                2
             }
 
             // Stack Operations
@@ -1476,6 +1636,7 @@ impl<'a> Cpu<'a> {
                 // PHA - Push Accumulator
                 self.bus.write(0x100 + self.stack_pointer as u16, self.a);
                 self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+                3
             }
             0x68 => {
                 // PLA - Pull Accumulator
@@ -1483,16 +1644,20 @@ impl<'a> Cpu<'a> {
                 self.a = self.bus.read(0x100 + self.stack_pointer as u16);
                 self.set_flag(FLAGS6502::Z, self.a == 0x00);
                 self.set_flag(FLAGS6502::N, (self.a & 0x80) != 0);
+                4
             }
             0x08 => {
                 // PHP - Push Processor Status
-                self.bus.write(0x100 + self.stack_pointer as u16, self.p | 0x10);
+                self.bus
+                    .write(0x100 + self.stack_pointer as u16, self.p | 0x10);
                 self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+                3
             }
             0x28 => {
                 // PLP - Pull Processor Status
                 self.stack_pointer = self.stack_pointer.wrapping_add(1);
                 self.p = self.bus.read(0x100 + self.stack_pointer as u16) & !0x10;
+                4
             }
 
             // Transfer Instructions
@@ -1501,34 +1666,40 @@ impl<'a> Cpu<'a> {
                 self.x = self.a;
                 self.set_flag(FLAGS6502::Z, self.x == 0x00);
                 self.set_flag(FLAGS6502::N, (self.x & 0x80) != 0);
+                2
             }
             0xA8 => {
                 // TAY - Transfer A to Y
                 self.y = self.a;
                 self.set_flag(FLAGS6502::Z, self.y == 0x00);
                 self.set_flag(FLAGS6502::N, (self.y & 0x80) != 0);
+                2
             }
             0x8A => {
                 // TXA - Transfer X to A
                 self.a = self.x;
                 self.set_flag(FLAGS6502::Z, self.a == 0x00);
                 self.set_flag(FLAGS6502::N, (self.a & 0x80) != 0);
+                2
             }
             0x98 => {
                 // TYA - Transfer Y to A
                 self.a = self.y;
                 self.set_flag(FLAGS6502::Z, self.a == 0x00);
                 self.set_flag(FLAGS6502::N, (self.a & 0x80) != 0);
+                2
             }
             0xBA => {
                 // TSX - Transfer Stack Pointer to X
                 self.x = self.stack_pointer;
                 self.set_flag(FLAGS6502::Z, self.x == 0x00);
                 self.set_flag(FLAGS6502::N, (self.x & 0x80) != 0);
+                2
             }
             0x9A => {
                 // TXS - Transfer X to Stack Pointer
                 self.stack_pointer = self.x;
+                2
             }
 
             // ASL - Arithmetic Shift Left
@@ -1538,6 +1709,7 @@ impl<'a> Cpu<'a> {
                 self.a = self.a << 1;
                 self.set_flag(FLAGS6502::Z, self.a == 0x00);
                 self.set_flag(FLAGS6502::N, (self.a & 0x80) != 0);
+                2
             }
             0x06 => {
                 // ASL Zero Page
@@ -1549,6 +1721,7 @@ impl<'a> Cpu<'a> {
                 self.bus.write(addr as u16, result);
                 self.set_flag(FLAGS6502::Z, result == 0x00);
                 self.set_flag(FLAGS6502::N, (result & 0x80) != 0);
+                5
             }
             0x16 => {
                 // ASL Zero Page,X
@@ -1560,6 +1733,7 @@ impl<'a> Cpu<'a> {
                 self.bus.write(addr as u16, result);
                 self.set_flag(FLAGS6502::Z, result == 0x00);
                 self.set_flag(FLAGS6502::N, (result & 0x80) != 0);
+                6
             }
             0x0E => {
                 // ASL Absolute
@@ -1574,6 +1748,7 @@ impl<'a> Cpu<'a> {
                 self.bus.write(addr, result);
                 self.set_flag(FLAGS6502::Z, result == 0x00);
                 self.set_flag(FLAGS6502::N, (result & 0x80) != 0);
+                6
             }
             0x1E => {
                 // ASL Absolute,X
@@ -1588,6 +1763,7 @@ impl<'a> Cpu<'a> {
                 self.bus.write(addr, result);
                 self.set_flag(FLAGS6502::Z, result == 0x00);
                 self.set_flag(FLAGS6502::N, (result & 0x80) != 0);
+                7
             }
 
             // LSR - Logical Shift Right
@@ -1597,6 +1773,7 @@ impl<'a> Cpu<'a> {
                 self.a = self.a >> 1;
                 self.set_flag(FLAGS6502::Z, self.a == 0x00);
                 self.set_flag(FLAGS6502::N, false);
+                2
             }
             0x46 => {
                 // LSR Zero Page
@@ -1608,6 +1785,7 @@ impl<'a> Cpu<'a> {
                 self.bus.write(addr as u16, result);
                 self.set_flag(FLAGS6502::Z, result == 0x00);
                 self.set_flag(FLAGS6502::N, false);
+                5
             }
             0x56 => {
                 // LSR Zero Page,X
@@ -1619,6 +1797,7 @@ impl<'a> Cpu<'a> {
                 self.bus.write(addr as u16, result);
                 self.set_flag(FLAGS6502::Z, result == 0x00);
                 self.set_flag(FLAGS6502::N, false);
+                6
             }
             0x4E => {
                 // LSR Absolute
@@ -1633,6 +1812,7 @@ impl<'a> Cpu<'a> {
                 self.bus.write(addr, result);
                 self.set_flag(FLAGS6502::Z, result == 0x00);
                 self.set_flag(FLAGS6502::N, false);
+                6
             }
             0x5E => {
                 // LSR Absolute,X
@@ -1647,6 +1827,7 @@ impl<'a> Cpu<'a> {
                 self.bus.write(addr, result);
                 self.set_flag(FLAGS6502::Z, result == 0x00);
                 self.set_flag(FLAGS6502::N, false);
+                7
             }
 
             // ROL - Rotate Left
@@ -1657,6 +1838,7 @@ impl<'a> Cpu<'a> {
                 self.a = (self.a << 1) | old_carry;
                 self.set_flag(FLAGS6502::Z, self.a == 0x00);
                 self.set_flag(FLAGS6502::N, (self.a & 0x80) != 0);
+                2
             }
             0x26 => {
                 // ROL Zero Page
@@ -1669,6 +1851,7 @@ impl<'a> Cpu<'a> {
                 self.bus.write(addr as u16, result);
                 self.set_flag(FLAGS6502::Z, result == 0x00);
                 self.set_flag(FLAGS6502::N, (result & 0x80) != 0);
+                5
             }
             0x36 => {
                 // ROL Zero Page,X
@@ -1681,6 +1864,7 @@ impl<'a> Cpu<'a> {
                 self.bus.write(addr as u16, result);
                 self.set_flag(FLAGS6502::Z, result == 0x00);
                 self.set_flag(FLAGS6502::N, (result & 0x80) != 0);
+                6
             }
             0x2E => {
                 // ROL Absolute
@@ -1696,6 +1880,7 @@ impl<'a> Cpu<'a> {
                 self.bus.write(addr, result);
                 self.set_flag(FLAGS6502::Z, result == 0x00);
                 self.set_flag(FLAGS6502::N, (result & 0x80) != 0);
+                6
             }
             0x3E => {
                 // ROL Absolute,X
@@ -1711,6 +1896,7 @@ impl<'a> Cpu<'a> {
                 self.bus.write(addr, result);
                 self.set_flag(FLAGS6502::Z, result == 0x00);
                 self.set_flag(FLAGS6502::N, (result & 0x80) != 0);
+                7
             }
 
             // ROR - Rotate Right
@@ -1721,6 +1907,7 @@ impl<'a> Cpu<'a> {
                 self.a = (self.a >> 1) | old_carry;
                 self.set_flag(FLAGS6502::Z, self.a == 0x00);
                 self.set_flag(FLAGS6502::N, (self.a & 0x80) != 0);
+                2
             }
             0x66 => {
                 // ROR Zero Page
@@ -1733,6 +1920,7 @@ impl<'a> Cpu<'a> {
                 self.bus.write(addr as u16, result);
                 self.set_flag(FLAGS6502::Z, result == 0x00);
                 self.set_flag(FLAGS6502::N, (result & 0x80) != 0);
+                5
             }
             0x76 => {
                 // ROR Zero Page,X
@@ -1745,6 +1933,7 @@ impl<'a> Cpu<'a> {
                 self.bus.write(addr as u16, result);
                 self.set_flag(FLAGS6502::Z, result == 0x00);
                 self.set_flag(FLAGS6502::N, (result & 0x80) != 0);
+                6
             }
             0x6E => {
                 // ROR Absolute
@@ -1760,6 +1949,7 @@ impl<'a> Cpu<'a> {
                 self.bus.write(addr, result);
                 self.set_flag(FLAGS6502::Z, result == 0x00);
                 self.set_flag(FLAGS6502::N, (result & 0x80) != 0);
+                6
             }
             0x7E => {
                 // ROR Absolute,X
@@ -1775,202 +1965,62 @@ impl<'a> Cpu<'a> {
                 self.bus.write(addr, result);
                 self.set_flag(FLAGS6502::Z, result == 0x00);
                 self.set_flag(FLAGS6502::N, (result & 0x80) != 0);
+                7
             }
 
             // NOP - No Operation
             0xEA => {
                 // NOP Implied (official)
                 // Does nothing, just takes up time
+                2
             }
             0x89 => {
                 // NOP Immediate (unofficial)
                 self.program_counter = self.program_counter.wrapping_add(1); // Skip the immediate byte
+                2
             }
 
             // Flag Instructions
             0x18 => {
                 // CLC - Clear Carry Flag
                 self.set_flag(FLAGS6502::C, false);
+                2
             }
             0x38 => {
                 // SEC - Set Carry Flag
                 self.set_flag(FLAGS6502::C, true);
+                2
             }
             0x58 => {
                 // CLI - Clear Interrupt Disable
                 self.set_flag(FLAGS6502::I, false);
+                2
             }
             0x78 => {
                 // SEI - Set Interrupt Disable
                 self.set_flag(FLAGS6502::I, true);
+                2
             }
             0xB8 => {
                 // CLV - Clear Overflow Flag
                 self.set_flag(FLAGS6502::V, false);
+                2
             }
             0xD8 => {
                 // CLD - Clear Decimal Mode
                 self.set_flag(FLAGS6502::D, false);
+                2
             }
             0xF8 => {
                 // SED - Set Decimal Mode
                 self.set_flag(FLAGS6502::D, true);
+                2
             }
 
             _ => {
                 eprintln!("Unknown opcode: 0x{:02X}", opcode);
+                2
             }
         }
     }
-
-
-
-    // pub fn trace(cpu: &mut Cpu) -> String {
-    //     let ref opscodes: HashMap<u8, &'static opscode::OpsCode> = *opscode::OPSCODES_MAP;
-    //     let ref non_readable_addr = *NON_READABLE_ADDR;
-
-    //     let code = cpu.mem_read(cpu.program_counter);
-    //     let ops = opscodes.get(&code).unwrap();
-
-    //     let begin = cpu.program_counter;
-    //     let mut hex_dump = vec![];
-    //     hex_dump.push(code);
-
-    //     let (mem_addr, stored_value) = match ops.mode {
-    //         AddressingMode::Immediate
-    //         | AddressingMode::NoneAddressing
-    //         | AddressingMode::Accumulator => (0, 0),
-    //         _ => {
-    //             let address = if ops.len == 2 {
-    //                 cpu.mem_read(begin + 1) as u16
-    //             } else {
-    //                 cpu.mem_read_u16(begin + 1)
-    //             };
-    //             let (_, addr) = ops.mode.get_absolute_addr(cpu, address);
-    //             if !non_readable_addr.contains(&addr) {
-    //                 (addr, cpu.mem_read(addr))
-    //             } else {
-    //                 (addr, 0)
-    //             }
-    //         }
-    //     };
-
-    //     let tmp = match ops.len {
-    //         1 => match ops.mode {
-    //             AddressingMode::Accumulator => format!("A "),
-    //             _ => String::from(""),
-    //         },
-    //         2 => {
-    //             let address: u8 = cpu.read(begin + 1);
-    //             // let value = cpu.mem_read(address));
-    //             hex_dump.push(address);
-
-    //             match ops.mode {
-    //                 AddressingMode::Immediate => format!("#${:02x}", address),
-    //                 AddressingMode::ZeroPage => format!("${:02x} = {:02x}", mem_addr, stored_value),
-    //                 AddressingMode::ZeroPage_X => format!(
-    //                     "${:02x},X @ {:02x} = {:02x}",
-    //                     address, mem_addr, stored_value
-    //                 ),
-    //                 AddressingMode::ZeroPage_Y => format!(
-    //                     "${:02x},Y @ {:02x} = {:02x}",
-    //                     address, mem_addr, stored_value
-    //                 ),
-    //                 AddressingMode::Indirect_X => format!(
-    //                     "(${:02x},X) @ {:02x} = {:04x} = {:02x}",
-    //                     address,
-    //                     (address.wrapping_add(cpu.x)),
-    //                     mem_addr,
-    //                     stored_value
-    //                 ),
-    //                 AddressingMode::Indirect_Y | AddressingMode::Indirect_Y_PageCross => format!(
-    //                     "(${:02x}),Y = {:04x} @ {:04x} = {:02x}",
-    //                     address,
-    //                     (mem_addr.wrapping_sub(cpu.y as u16)),
-    //                     mem_addr,
-    //                     stored_value
-    //                 ),
-    //                 AddressingMode::NoneAddressing => {
-    //                     // assuming local jumps: BNE, BVS, etc.... todo: check ?
-    //                     let address: usize =
-    //                         (begin as usize + 2).wrapping_add((address as i8) as usize);
-    //                     format!("${:04x}", address)
-    //                 }
-
-    //                 _ => panic!(
-    //                     "unexpected addressing mode {:?} has ops-len 2. code {:02x}",
-    //                     ops.mode, ops.code
-    //                 ),
-    //             }
-    //         }
-    //         3 => {
-    //             let address_lo = cpu.read(begin + 1);
-    //             let address_hi = cpu.read(begin + 2);
-    //             hex_dump.push(address_lo);
-    //             hex_dump.push(address_hi);
-
-    //             let address = cpu.read(begin + 1);
-
-    //             match ops.mode {
-    //                 AddressingMode::NoneAddressing => {
-    //                     if ops.code == 0x6c {
-    //                         //jmp indirect
-    //                         let jmp_addr = if address & 0x00FF == 0x00FF {
-    //                             let lo = cpu.read(address as u16);
-    //                             let hi = cpu.read(address as u16 & 0xFF00 as u16);
-    //                             (hi as u16) << 8 | (lo as u16)
-    //                         } else {
-    //                             cpu.read(address as u16) as u16
-    //                         };
-
-    //                         // let jmp_addr = cpu.mem_read_u16(address);
-    //                         format!("(${:04x}) = {:04x}", address, jmp_addr)
-    //                     } else {
-    //                         format!("${:04x}", address)
-    //                     }
-    //                 }
-    //                 AddressingMode::Absolute => format!("${:04x} = {:02x}", mem_addr, stored_value),
-    //                 AddressingMode::Absolute_X | AddressingMode::Absolute_X_PageCross => format!(
-    //                     "${:04x},X @ {:04x} = {:02x}",
-    //                     address, mem_addr, stored_value
-    //                 ),
-    //                 AddressingMode::Absolute_Y | AddressingMode::Absolute_Y_PageCross => format!(
-    //                     "${:04x},Y @ {:04x} = {:02x}",
-    //                     address, mem_addr, stored_value
-    //                 ),
-    //                 _ => panic!(
-    //                     "unexpected addressing mode {:?} has ops-len 3. code {:02x}",
-    //                     ops.mode, ops.code
-    //                 ),
-    //             }
-    //         }
-    //         _ => String::from(""),
-    //     };
-
-    //     let hex_str = hex_dump
-    //         .iter()
-    //         .map(|z| format!("{:02x}", z))
-    //         .collect::<Vec<String>>()
-    //         .join(" ");
-    //     let asm_str = format!("{:04x}  {:8} {: >4} {}", begin, hex_str, ops.mnemonic, tmp)
-    //         .trim()
-    //         .to_string();
-
-    //     // let bus_trace = cpu.bus.trace();
-    //     format!(
-    //         // "{:47} A:{:02x} X:{:02x} Y:{:02x} SP:{:02x} FL:{:08b}",
-    //         "{:47} A:{:02x} X:{:02x} Y:{:02x} P:{:02x} SP:{:02x} PPU:{:3},{:3} CYC:{}",
-    //         // "{:30}(a:{:x}, x:{:x}, y:{:x}, sp:{:x}, fl:{:x})",
-    //         asm_str,
-    //         cpu.a,
-    //         cpu.x,
-    //         cpu.y,
-    //         cpu.f,
-    //         cpu.stack_pointer,
-    //         // bus_trace.ppu_cycles,
-    //         bus_trace.ppu_scanline,
-    //         bus_trace.cpu_cycles
-    //     )
-    //     .to_ascii_uppercase()
-    // }
 }

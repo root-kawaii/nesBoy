@@ -1,20 +1,16 @@
 use crate::add_register::AddrRegister;
 use crate::controller_register::ControlRegister;
+use crate::mask::MaskRegister;
+use crate::mirroring::Mirroring;
+use crate::scroll::ScrollRegister;
 use crate::status::StatusRegister;
-
-
-#[derive(Debug)]
-pub enum Mirroring {
-    VERTICAL,
-    HORIZONTAL,
-}
 
 pub struct Ppu {
     // PPU Registers
     pub control: u8,
-    pub mask: u8,
+    pub mask: MaskRegister,
     pub oam_addr: u8,
-    pub scroll: u8,
+    pub scroll: ScrollRegister,
     // pub addr: u8,
     pub data: u8,
     pub oam_dma: u8,
@@ -30,7 +26,7 @@ pub struct Ppu {
     pub vram: [u8; 0x4000],
     name_table: [u8; 1024],
     pub palette_table: [u8; 64],
-    pub oam_data: [u8; 256],  // Object Attribute Memory (64 sprites * 4 bytes each)
+    pub oam_data: [u8; 256], // Object Attribute Memory (64 sprites * 4 bytes each)
 
     // Rendering state
     scanline: i32,
@@ -38,7 +34,7 @@ pub struct Ppu {
     frame_complete: bool,
     addr: AddrRegister,
 
-    mirroring: Mirroring,
+    pub mirroring: Mirroring,
 
     tile_id: u8,
     tile_attrib: u8,
@@ -46,15 +42,18 @@ pub struct Ppu {
     tile_msb: u8,
 
     pub nmi_interrupt: Option<u8>,
+
+    // Latched nametable address for stable rendering
+    pub latched_nametable_addr: u16,
 }
 
 impl Ppu {
     pub fn new(mirroring: bool, chr_rom: Vec<u8>) -> Self {
         Ppu {
             control: 0,
-            mask: 0,
+            mask: MaskRegister::new(),
             oam_addr: 0,
-            scroll: 0,
+            scroll: ScrollRegister::new(),
             // addr: 0,
             data: 0,
             oam_dma: 0,
@@ -82,6 +81,7 @@ impl Ppu {
             addr: AddrRegister::new(),
             internal_data_buf: 0,
             nmi_interrupt: None,
+            latched_nametable_addr: 0x2000,
         }
     }
 
@@ -90,18 +90,18 @@ impl Ppu {
     }
 
     fn write_to_ctrl(&mut self, value: u8) {
-       self.ctrl.update(value);
+        self.ctrl.update(value);
     }
 
     fn increment_vram_addr(&mut self) {
-       self.addr.increment(self.ctrl.vram_addr_increment());
+        self.addr.increment(self.ctrl.vram_addr_increment());
     }
 
     pub fn read_data(&mut self) -> u8 {
         let addr = self.addr.get();
         self.increment_vram_addr();
 
-       match addr {
+        match addr {
             0..=0x1fff => {
                 let result = self.internal_data_buf;
                 self.internal_data_buf = self.chr_rom[addr as usize];
@@ -112,32 +112,19 @@ impl Ppu {
                 self.internal_data_buf = self.vram[self.mirror_vram_addr(addr) as usize];
                 result
             }
-           0x3000..=0x3eff => panic!("addr space 0x3000..0x3eff is not expected to be used, requested = {} ", addr),
-           0x3f00..=0x3fff =>
-           {
-               self.palette_table[(addr - 0x3f00) as usize]
-           }
-           _ => panic!("unexpected access to mirrored space {}", addr),
-       }
+            0x3000..=0x3eff => panic!(
+                "addr space 0x3000..0x3eff is not expected to be used, requested = {} ",
+                addr
+            ),
+            0x3f00..=0x3fff => self.palette_table[(addr - 0x3f00) as usize],
+            _ => panic!("unexpected access to mirrored space {}", addr),
+        }
     }
-
-    // pub fn read(&mut self, addr: u16) -> u8 {
-    //     // Read from PPU memory or registers
-    //     match addr {
-    //         0x2000 => self.control,
-    //         0x2001 => self.mask,
-    //         0x2002 => self.read_status(addr),
-    //         0x2004 => self.oam_data,
-    //         0x2007 => self.data,
-    //         _ => 0,
-    //     }
-    // }
-
 
     pub fn write_to_data(&mut self, value: u8) {
         let addr = self.addr.get();
         match addr {
-            0..=0x1fff => {}, // CHR ROM is read-only, silently ignore
+            0..=0x1fff => {} // CHR ROM is read-only, silently ignore
             0x2000..=0x2fff => {
                 self.vram[self.mirror_vram_addr(addr) as usize] = value;
             }
@@ -146,8 +133,7 @@ impl Ppu {
                 let add_mirror = addr - 0x10;
                 self.palette_table[(add_mirror - 0x3f00) as usize] = value;
             }
-            0x3f00..=0x3fff =>
-            {
+            0x3f00..=0x3fff => {
                 self.palette_table[(addr - 0x3f00) as usize] = value;
             }
             _ => panic!("unexpected access to mirrored space {}", addr),
@@ -155,28 +141,21 @@ impl Ppu {
         self.increment_vram_addr();
     }
 
-    // pub fn step(&mut self) {
-    //     // Perform one PPU cycle
-    //     self.cycle += 1;
-    //     if self.cycle > 340 {
-    //         self.cycle = 0;
-    //         self.scanline += 1;
-    //         if self.scanline > 261 {
-    //             self.scanline = 0;
-    //             self.frame_complete = true;
-    //         }
-    //     }
-    // }
-
     pub fn tick(&mut self, cycles: u8) -> bool {
         self.cycles += cycles as usize;
         if self.cycles >= 341 {
+            if self.is_sprite_0_hit(self.cycles) {
+                self.status.set_sprite_zero_hit(true);
+            }
             self.cycles = self.cycles - 341;
             self.scanline += 1;
 
             if self.scanline == 241 {
                 self.status.set_vblank_status(true);
                 self.status.set_sprite_zero_hit(false);
+                // Latch scroll values and nametable address at VBlank start
+                self.scroll.latch_for_render();
+                self.latched_nametable_addr = self.ctrl.nametable_addr();
                 if self.ctrl.generate_vblank_nmi() {
                     self.nmi_interrupt = Some(1);
                 }
@@ -217,7 +196,7 @@ impl Ppu {
     // Horizontal:
     //   [ A ] [ a ]
     //   [ B ] [ b ]
-    
+
     // Vertical:
     //   [ A ] [ B ]
     //   [ a ] [ b ]
@@ -235,7 +214,7 @@ impl Ppu {
     }
 
     pub fn write_to_ppu_addr(&mut self, value: u8) {
-       self.addr.update(value);
+        self.addr.update(value);
     }
 
     pub fn is_frame_complete(&self) -> bool {
@@ -250,6 +229,7 @@ impl Ppu {
         let status = self.status.snapshot();
         self.status.reset_vblank_status();
         self.addr.reset_latch();
+        self.scroll.reset_latch();
         status
     }
 
@@ -262,7 +242,7 @@ impl Ppu {
     }
 
     pub fn write_mask(&mut self, data: u8) {
-        self.mask = data;
+        self.mask.update(data);
     }
 
     pub fn write_oam_addr(&mut self, data: u8) {
@@ -278,20 +258,13 @@ impl Ppu {
         self.oam_data[self.oam_addr as usize]
     }
 
-    pub fn write_scroll(&mut self, data: u8) {
-        self.scroll = data;
+    pub fn write_to_scroll(&mut self, value: u8) {
+        self.scroll.write(value);
+    }
+
+    fn is_sprite_0_hit(&self, cycle: usize) -> bool {
+        let y = self.oam_data[0] as usize;
+        let x = self.oam_data[3] as usize;
+        (y == self.scanline as usize) && x <= cycle && self.mask.show_sprites()
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-

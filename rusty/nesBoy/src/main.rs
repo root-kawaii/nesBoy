@@ -2,12 +2,14 @@ mod add_register;
 mod bus;
 mod controller_register;
 mod cpu;
-mod ppu;
-mod rom_loader;
-mod status;
 mod frame;
 mod joypad;
-
+mod mask;
+mod mirroring;
+mod ppu;
+mod rom_loader;
+mod scroll;
+mod status;
 
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
@@ -34,15 +36,11 @@ static NES_PALETTE: [u32; 4] = [
     0xFFFF0000, // blue
 ];
 
-
 fn main() {
     let sdl = sdl2::init().unwrap();
     let video = sdl.video().unwrap();
     let window = video.window("NES", 256 * 3, 240 * 3).build().unwrap();
-    let mut canvas = window
-        .into_canvas()
-        .build()
-        .unwrap();
+    let mut canvas = window.into_canvas().build().unwrap();
     let texture_creator = canvas.texture_creator();
     let mut texture = texture_creator
         .create_texture_streaming(PixelFormatEnum::RGB24, 256, 240)
@@ -52,20 +50,20 @@ fn main() {
     let mut frame = Frame::new();
 
     let mut key_map = HashMap::new();
-        key_map.insert(Keycode::Down, joypad::JoypadButton::DOWN);
-        key_map.insert(Keycode::Up, joypad::JoypadButton::UP);
-        key_map.insert(Keycode::Right, joypad::JoypadButton::RIGHT);
-        key_map.insert(Keycode::Left, joypad::JoypadButton::LEFT);
-        key_map.insert(Keycode::Space, joypad::JoypadButton::SELECT);
-        key_map.insert(Keycode::Return, joypad::JoypadButton::START);
-        key_map.insert(Keycode::A, joypad::JoypadButton::BUTTON_A);
-        key_map.insert(Keycode::S, joypad::JoypadButton::BUTTON_B);
+    key_map.insert(Keycode::Down, joypad::JoypadButton::DOWN);
+    key_map.insert(Keycode::Up, joypad::JoypadButton::UP);
+    key_map.insert(Keycode::Right, joypad::JoypadButton::RIGHT);
+    key_map.insert(Keycode::Left, joypad::JoypadButton::LEFT);
+    key_map.insert(Keycode::Space, joypad::JoypadButton::SELECT);
+    key_map.insert(Keycode::Return, joypad::JoypadButton::START);
+    key_map.insert(Keycode::A, joypad::JoypadButton::BUTTON_A);
+    key_map.insert(Keycode::S, joypad::JoypadButton::BUTTON_B);
 
     // load the game
-    let rom = RomLoader::new("pac.nes").unwrap();
+    let rom = RomLoader::new("zelda.nes").unwrap();
 
     // the game cycle
-    let bus = Bus::new(rom, move |ppu: &Ppu, joypad: &mut joypad::Joypad|  {
+    let bus = Bus::new(rom, move |ppu: &Ppu, joypad: &mut joypad::Joypad| {
         Frame::render(ppu, &mut frame);
         texture.update(None, &frame.data, 256 * 3).unwrap();
 
